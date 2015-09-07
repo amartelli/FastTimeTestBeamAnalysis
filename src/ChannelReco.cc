@@ -14,6 +14,7 @@ ChannelReco::ChannelReco(JSONWrapper::Object &cfg, PlotType ptype, Bool_t doPlot
   module_            = cfg["channel"].toInt();
   searchWindowUp_       = cfg["searchWindowUp"].toInt();
   searchWindowLo_       = cfg["searchWindowLo"].toInt();
+  baselineSlope_       = cfg["baselineSlope"].toDouble();
   searchWindowTriggerRelative_ = cfg["searchWindowTriggerRelative"].toInt();
   searchWindowAfterUp_       = cfg["searchWindowAfterUp"].toDouble();
   searchWindowAfterLo_       = cfg["searchWindowAfterLo"].toDouble();
@@ -34,7 +35,7 @@ ChannelReco::ChannelReco(JSONWrapper::Object &cfg, PlotType ptype, Bool_t doPlot
   smallChargeWindowSize_ = cfg["smallChargeWindowSize"].toInt();
   largeChargeWindowSize_ = cfg["largeChargeWindowSize"].toInt();
   //save configuration values in a histogram
-  chRecoCfgH_ = new TH1F(name_+"_cfg",";"+name_+";Value",24,0,24);
+  chRecoCfgH_ = new TH1F(name_+"_cfg",";"+name_+";Value",25,0,25);
   chRecoCfgH_->SetDirectory(0);
   chRecoCfgH_->SetBinContent(1,group_);                  chRecoCfgH_->GetXaxis()->SetBinLabel(1,"group");
   chRecoCfgH_->SetBinContent(2,module_);                 chRecoCfgH_->GetXaxis()->SetBinLabel(2,"channel");
@@ -59,6 +60,7 @@ ChannelReco::ChannelReco(JSONWrapper::Object &cfg, PlotType ptype, Bool_t doPlot
   chRecoCfgH_->SetBinContent(21,smallChargeWindowSize_);       chRecoCfgH_->GetXaxis()->SetBinLabel(21,"smallChargeWindowSize");
   chRecoCfgH_->SetBinContent(22,largeChargeWindowSize_);       chRecoCfgH_->GetXaxis()->SetBinLabel(22,"largeChargeWindowSize");
   chRecoCfgH_->SetBinContent(23,mcpTimeDelta_);       chRecoCfgH_->GetXaxis()->SetBinLabel(23,"mcpTimeDelta");
+  chRecoCfgH_->SetBinContent(24,baselineSlope_);       chRecoCfgH_->GetXaxis()->SetBinLabel(24,"baselineSlope");
 
   //  std::cout << "\t " << name_ << " will be reconstructed from group=" << group_ << " channel=" << module_ << std::endl;
   Print();
@@ -73,6 +75,7 @@ void ChannelReco::Print()
   std::cout << "Pedestal WindowLo\t" << this->GetPedestalWindowLo() << std::endl;
   std::cout << "Pedestal WindowUp\t" << this->GetPedestalWindowUp() << std::endl;
   std::cout << "Inversion Threshold\t" << this->GetThrForPulseInversion() << std::endl;
+  std::cout << "Baseline Slope\t" << this->GetBaselineSlope() << std::endl;
   std::cout << "Max Search WindowLo\t" << this->GetSearchWindowLo() << std::endl;
   std::cout << "Max Search WindowUp\t" << this->GetSearchWindowUp() << std::endl;
   std::cout << "Max Search TriggerRelative\t" << this->GetSearchWindowTriggerRelative() << std::endl;

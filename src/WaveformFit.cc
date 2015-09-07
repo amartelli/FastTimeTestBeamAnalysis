@@ -48,11 +48,12 @@ namespace WaveformFit
 	//	delta=(refWave->GetBinContent(i)-(y_interpolator->Eval(refWave->GetBinCenter(i)+par[1])+par[0]))/(TMath::Sqrt(refWave->GetBinError(i)*refWave->GetBinError(i)+y_err_interpolator->Eval(refWave->GetBinCenter(i)+par[1])*y_err_interpolator->Eval(refWave->GetBinCenter(i)+par[1])));
 	if ( (*waveData)._times[i]*1.e9-par[1]<=(fitWave->GetXaxis()->GetXmin()+0.25) || (*waveData)._times[i]*1.e9-par[1]>=(fitWave->GetXaxis()->GetXmax()+0.25))
 	  {
-	    //std::cout << "OUT OF BOUNDS " << (*waveData)._times[i]*1.e9-par[1] << "," << fitWave->GetXaxis()->GetXmin() << "," << fitWave->GetXaxis()->GetXmax() << std::endl;
+	    std::cout << "OUT OF BOUNDS " << (*waveData)._times[i]*1.e9-par[1] << "," << fitWave->GetXaxis()->GetXmin() << "," << fitWave->GetXaxis()->GetXmax() << std::endl;
 	    chisq += 9999;
 	  }
 	else
 	  {
+	    // std::cout  << i << " " << (*waveData)._samples[i] << "," << (*waveData)._times[i] << " " << y_interpolator->Eval((*waveData)._times[i]*1.e9-par[1]) << std::endl;
 	    delta= ((*waveData)._samples[i]-(y_interpolator->Eval((*waveData)._times[i]*1.e9-par[1])*par[0]))/sampleRMS; //fit par[0]*ref_shape(t-par[1]) par[0]=amplitude, par[1]=DeltaT
 	    chisq += delta*delta;
 	  }
@@ -118,10 +119,10 @@ namespace WaveformFit
     //     minimizer=min;
   }
 
-  void fitWaveform(Waveform* wave, TProfile* amplitudeProfile, int nSamplesBeforeMax, int nSamplesAfterMax, const Waveform::max_amplitude_informations& max, const Waveform::baseline_informations& waveRms, ROOT::Math::Minimizer* &minimizer)
+  void fitWaveform(Waveform* wave, TProfile* amplitudeProfile, int x1, int x2, const Waveform::max_amplitude_informations& max, const Waveform::baseline_informations& waveRms, ROOT::Math::Minimizer* &minimizer)
   {
-    xMin=max.sample_at_max-nSamplesBeforeMax;
-    xMax=max.sample_at_max+nSamplesAfterMax;
+    xMin=x1;
+    xMax=x2;
 
     waveData=wave;
     fitWave=amplitudeProfile;
@@ -153,8 +154,10 @@ namespace WaveformFit
 
     //    std::cout << "INIITIAL VALUES " << max.max_amplitude << "," << max.time_at_max*1.e9 << "," << max.sample_at_max << std::endl;
 
-    minimizer->SetLimitedVariable(0,"amplitude",max.max_amplitude,1e-2,std::max(0.,(double)max.max_amplitude-500),std::min(4000.,(double)max.max_amplitude+500.));
-    minimizer->SetLimitedVariable(1,"deltaT",max.time_at_max*1.e9,1e-3,max.time_at_max*1.e9-0.5,max.time_at_max*1.e9+0.5);
+    //    minimizer->SetLimitedVariable(0,"amplitude",max.max_amplitude,1e-2,std::max(0.,(double)max.max_amplitude-500),std::min(4000.,(double)max.max_amplitude+500.));
+    minimizer->SetLimitedVariable(0,"amplitude",max.max_amplitude,1e-2,-500., 4000.);
+    //    minimizer->SetLimitedVariable(1,"deltaT",max.time_at_max*1.e9,1e-3,max.time_at_max*1.e9-0.5,max.time_at_max*1.e9+0.5);
+    minimizer->SetFixedVariable(1,"deltaT",0.);
 
     minimizer->Minimize();
 

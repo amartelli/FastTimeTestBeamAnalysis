@@ -27,6 +27,7 @@ class Waveform
   {
     float pedestal;
     float rms;
+    float slope;
   };
 
   Waveform() : _interpolator(0)
@@ -101,7 +102,7 @@ class Waveform
   float time_at_frac(const float& t1, const float& t2, const float& frac, const max_amplitude_informations& maxInfos, int SampleToInterpolate=5) const;
 
   //Get the baseline (pedestal and RMS) informations computed between x1 and x2
-  baseline_informations baseline(const int& x1, const int& x2) const;
+  baseline_informations baseline(const int& x1, const int& x2, bool fitSlope=false) const;
 
   //get values at crossing a specif threshold */
   std::vector<float> time_at_threshold(const float& t1, const float& t2, const float& threshold, int SampleToInterpolate=5) const; 
@@ -130,10 +131,10 @@ class Waveform
   };
 
   //substract a fixed value from the samples
-  void offset(const float& value)
+  void offset(const float& value, const float& slope=0.)
   {
     for (unsigned int i(0);i<_samples.size();++i)
-      _samples[i]-=value;
+      _samples[i]-=(value+slope*(_times[i]*1.E9)); //slope has to be expressed in ADC/ns
   };
 
   //rescale all the samples by a given rescale factor
@@ -147,7 +148,7 @@ class Waveform
   void shift_time(const float& time_offset)
   {
     for (unsigned int i(0);i<_times.size();++i)
-      _times[i]+=time_offset;
+	_times[i]+=time_offset;
   } 
     
 };

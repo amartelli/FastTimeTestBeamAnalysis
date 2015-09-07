@@ -48,6 +48,7 @@ public:
   Int_t GetLargeChargeWindowsSize()                           { return largeChargeWindowSize_; };
   //Float
   Float_t GetCFDWindowLo()                                    { return cfdWindowLo_; }
+  Float_t GetBaselineSlope()                                  { return baselineSlope_; }
   Float_t GetSearchWindowAfterLo()                            { return searchWindowAfterLo_; }
   Float_t GetSearchWindowAfterUp()                            { return searchWindowAfterUp_; }
   Float_t GetChargeWindowLo()                                 { return chargeWindowLo_; };                
@@ -68,6 +69,7 @@ public:
   
   Int_t group_, module_,searchWindowUp_,searchWindowLo_,spyWindowLo_,spyWindowUp_;
   Float_t cfdWindowLo_;
+  Float_t baselineSlope_;
   Float_t searchWindowAfterLo_, searchWindowAfterUp_;
   Float_t chargeWindowUp_, chargeWindowLo_, absoluteTimeDelta_;
   Int_t smallChargeWindowSize_;

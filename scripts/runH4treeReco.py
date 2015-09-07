@@ -37,6 +37,11 @@ def main():
                       default='local')
     (opt, args) = parser.parse_args()
 
+    scriptRealPath=os.path.realpath(sys.argv[0])
+    if opt.queue!='local':
+        os.system('bsub -q %s %s -o %s -i %s --base %s -c %s -q local'%(opt.queue,scriptRealPath,opt.output,opt.input,opt.base,opt.cfg))
+        return 0
+
     #build list of input files
     inputList=opt.input.split(',')
     fileList=[]
@@ -68,18 +73,14 @@ def main():
     commands.getstatusoutput('%s %s' % (prepareCmd,opt.output) )
     stageCmd   = 'cmsStage -f' if '/store/' in opt.output else 'cp'
         
-    #run or submit tasks
-    if opt.queue=='local':
-        os.system('cd %s && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:%s/lib && ./bin/RunH4treeReco %s %s %s && %s %s %s && rm %s && cd -' 
+    #run 
+    os.system('cd %s && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:%s/lib && ./bin/RunH4treeReco %s %s %s && %s %s %s && rm %s && cd -' 
                   % (opt.base,
                      opt.base,
                      inputUrl,opt.cfg,localOutput,
                      stageCmd,localOutput,opt.output,
                      localOutput)
                   )
-    else:
-        scriptRealPath=os.path.realpath(sys.argv[0])
-        os.system('bsub -q %s %s -o %s -i %s --base %s -c %s -q local'%(opt.queue,scriptRealPath,opt.output,inputUrl,opt.base,opt.cfg))
         
     return 0
 

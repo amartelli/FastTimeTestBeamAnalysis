@@ -43,10 +43,19 @@ H4treeReco::H4treeReco(TChain *tree,JSONWrapper::Object *cfg,TString outUrl) :
   recoT_->Branch("ch",                   ch_,                  "ch[maxch]/F");
   recoT_->Branch("pedestal",             pedestal_,            "pedestal[maxch]/F");
   recoT_->Branch("pedestalRMS",          pedestalRMS_,         "pedestalRMS[maxch]/F");
+  recoT_->Branch("pedestalSlope",        pedestalSlope_,         "pedestalSlope[maxch]/F");
   recoT_->Branch("wave_max",             wave_max_,            "wave_max[maxch]/F");
   recoT_->Branch("wave_max_aft",         wave_max_aft_,        "wave_max_aft[maxch]/F");
   recoT_->Branch("wave_aroundmax",       wave_aroundmax_,      "wave_aroundmax[maxch][50]/F");
   recoT_->Branch("time_aroundmax",       time_aroundmax_,      "time_aroundmax[maxch][50]/F");
+  recoT_->Branch("wave_fit_smallw_ampl",        wave_fit_smallw_ampl_,       "wave_fit_smallw_ampl[maxch]/F");
+  recoT_->Branch("wave_fit_smallw_amplerr",     wave_fit_smallw_amplerr_,    "wave_fit_smallw_amplerr[maxch]/F");
+  recoT_->Branch("wave_fit_smallw_chi2",        wave_fit_smallw_chi2_,       "wave_fit_smallw_chi2[maxch]/F");
+  recoT_->Branch("wave_fit_smallw_ndof",        wave_fit_smallw_ndof_,       "wave_fit_smallw_ndof[maxch]/F");
+  recoT_->Branch("wave_fit_largew_ampl",        wave_fit_largew_ampl_,       "wave_fit_largew_ampl[maxch]/F");
+  recoT_->Branch("wave_fit_largew_amplerr",     wave_fit_largew_amplerr_,    "wave_fit_largew_amplerr[maxch]/F");
+  recoT_->Branch("wave_fit_largew_chi2",        wave_fit_largew_chi2_,       "wave_fit_largew_chi2[maxch]/F");
+  recoT_->Branch("wave_fit_largew_ndof",        wave_fit_largew_ndof_,       "wave_fit_largew_ndof[maxch]/F");
   recoT_->Branch("charge_integ",         charge_integ_,        "charge_integ[maxch]/F");
   recoT_->Branch("charge_integ_max",     charge_integ_max_,    "charge_integ_max[maxch]/F");
   recoT_->Branch("charge_integ_fix",     charge_integ_fix_,    "charge_integ_fix[maxch]/F");
@@ -69,6 +78,18 @@ H4treeReco::H4treeReco(TChain *tree,JSONWrapper::Object *cfg,TString outUrl) :
 //
 void H4treeReco::InitDigi()
 {
+  //general config
+  std::vector<JSONWrapper::Object> general=(*cfg_)["general"].daughters();
+  for(size_t i=0; i<general.size(); i++)
+    {
+      fWaveTemplates_= TFile::Open(general[i]["waveTemplates"].toString().c_str());
+      if (!fWaveTemplates_)
+	{
+	  std::cout << "ERROR::Cannot open " << general[i]["waveTemplates"].toString() << std::endl;
+	  exit(-1);
+	}
+    }
+
   //init channels of interest
   std::vector<JSONWrapper::Object> digis=(*cfg_)["digis"].daughters();
   trigger_=std::pair<int,int>(-1,-1);
@@ -84,6 +105,14 @@ void H4treeReco::InitDigi()
 	  trigger_=key;
       recChannelsH_->GetXaxis()->SetBinLabel(i+1,chRec->GetName());
       recChannelsH_->SetBinContent(i+1,i);
+      TProfile* wave=(TProfile*)fWaveTemplates_->Get(Form("%s_waveProfile",chRec->GetName().Data()));
+      if (wave)
+	{
+	  waveTemplates_[i]=wave;
+	  wave->Print();
+	}
+      else
+	waveTemplates_[i]=0;
     }
 
   //init wire chambers readout
@@ -96,6 +125,7 @@ void H4treeReco::InitDigi()
       wcYd_[i]=wcs[i]["d"].toInt();
       wcYu_[i]=wcs[i]["u"].toInt();
     }
+
 }
 
 //
@@ -107,7 +137,7 @@ void H4treeReco::FillWaveforms()
     {
       it->second->ClearVectors();
       it->second->GetWaveform()->clear();
-      for(int k=0; k<25; k++) 
+      for(int k=0; k<50; k++) 
 	{
 	  wave_aroundmax_[ictr][k]=-9999;
 	  time_aroundmax_[ictr][k]=-9999;
@@ -152,10 +182,10 @@ void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
   
   //use samples to get pedestal and RMS
   Waveform::baseline_informations wave_pedestal= waveform->baseline(chRec->GetPedestalWindowLo(),
-								    chRec->GetPedestalWindowUp()); 
+								    chRec->GetPedestalWindowUp(),(chRec->GetBaselineSlope()!=0)); 
   
-  //substract the pedestal from the samples
-  waveform->offset(wave_pedestal.pedestal);
+  //substract the pedestal from the samples (slope corrected if slope !=0 slope in ADC/ns)
+  waveform->offset(wave_pedestal.pedestal,chRec->GetBaselineSlope());
   
   //if pedestal is very high, the signal is negative -> invert it
   if(wave_pedestal.pedestal>chRec->GetThrForPulseInversion()) waveform->rescale(-1);	
@@ -163,11 +193,13 @@ void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
   //find max amplitude in search window (5 is the number of samples around max for the interpolation)
   int searchWindowLo=chRec->GetSearchWindowLo();
   int searchWindowUp=chRec->GetSearchWindowUp();
-  if (chRec->GetSearchWindowTriggerRelative() && (*it).first != trigger_)
+  if (chRec->GetSearchWindowTriggerRelative() && (*it).first != trigger_ && chRec->GetMCPTimeDelta()!=0)
     {
       //When this is enabled, trigger should always be reconstructed always as channel 0
-      searchWindowLo+=(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9));
-      searchWindowUp+=(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9));
+      // searchWindowLo+=(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9));
+      // searchWindowUp+=(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9));
+      searchWindowLo+=(int)((t_max_[1]+chRec->GetMCPTimeDelta())/(waveform->_times[1]*1E9));
+      searchWindowUp+=(int)((t_max_[1]+chRec->GetMCPTimeDelta())/(waveform->_times[1]*1E9));
     }
 
 #ifdef DEBUG_VERBOSE
@@ -188,6 +220,7 @@ void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
   ch_[maxch_]                 = it->first.second;
   pedestal_[maxch_]           = wave_pedestal.pedestal;
   pedestalRMS_[maxch_]        = wave_pedestal.rms;
+  pedestalSlope_[maxch_]        = wave_pedestal.slope;
   wave_max_[maxch_]           = wave_max.max_amplitude;
   wave_max_aft_[maxch_]           = wave_max_aft.max_amplitude; //for studying ringing issues after the samples
   t_max_[maxch_]              = wave_max.time_at_max*1.e9;
@@ -285,6 +318,52 @@ void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
       charge_integ_largew_rnd_[maxch_] += waveform->charge_integrated(irnd,irnd);
     }
 
+
+  //now fit 
+  if (chRec->GetMCPTimeDelta()!=0 && (*it).first != trigger_)
+    {
+      //Largew fit
+      ROOT::Math::Minimizer* minim;
+      int xFitMin=std::max(0,(int)((t_max_[1]+chRec->GetMCPTimeDelta())/(waveform->_times[1]*1E9))-((chRec->GetLargeChargeWindowsSize()-1)/2));
+      int xFitMax=std::min(1000,(int)((t_max_[1]+chRec->GetMCPTimeDelta())/(waveform->_times[1]*1E9))+((chRec->GetLargeChargeWindowsSize()-1)/2));
+      Waveform fitWave=(*waveform);
+      fitWave.shift_time(-1*(t_max_[1]/1.E9)); //shift waveform according to the MCPtrigger
+      WaveformFit::fitWaveform(&fitWave, waveTemplates_[maxch_], xFitMin, xFitMax, wave_max, wave_pedestal, minim);
+      const double *par=minim->X();
+      const double *errors=minim->Errors();
+
+      wave_fit_largew_ampl_[maxch_] = par[0];
+      wave_fit_largew_amplerr_[maxch_] = errors[0];
+      wave_fit_largew_chi2_[maxch_] = minim->MinValue();
+      wave_fit_largew_ndof_[maxch_] = xFitMax - xFitMin +1 -1;
+      delete minim;
+
+      //Smallw fit
+      ROOT::Math::Minimizer* minim_2;
+      xFitMin=std::max(0,(int)((t_max_[1]+chRec->GetMCPTimeDelta())/(waveform->_times[1]*1E9))-((chRec->GetSmallChargeWindowsSize()-1)/2));
+      xFitMax=std::min(1000,(int)((t_max_[1]+chRec->GetMCPTimeDelta())/(waveform->_times[1]*1E9))+((chRec->GetSmallChargeWindowsSize()-1)/2));
+
+      WaveformFit::fitWaveform(&fitWave, waveTemplates_[maxch_], xFitMin, xFitMax, wave_max, wave_pedestal, minim_2);
+      par=minim_2->X();
+      errors=minim_2->Errors();
+      wave_fit_smallw_ampl_[maxch_] = par[0];
+      wave_fit_smallw_amplerr_[maxch_] = errors[0];
+      wave_fit_smallw_chi2_[maxch_] = minim_2->MinValue();
+      wave_fit_smallw_ndof_[maxch_] = xFitMax - xFitMin +1 -1;
+      delete minim_2;
+    }
+  else
+    {
+      wave_fit_largew_ampl_[maxch_] = -9999;
+      wave_fit_largew_amplerr_[maxch_] = -9999;
+      wave_fit_largew_chi2_[maxch_] = -9999;
+      wave_fit_largew_ndof_[maxch_] = -9999;
+
+      wave_fit_smallw_ampl_[maxch_] = -9999;
+      wave_fit_smallw_amplerr_[maxch_] = -9999;
+      wave_fit_smallw_chi2_[maxch_] = -9999;
+      wave_fit_smallw_ndof_[maxch_] = -9999;
+    }
   maxch_++;
 }
 

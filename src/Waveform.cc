@@ -394,7 +394,7 @@ void Waveform::find_interesting_samples(int nSamples, const max_amplitude_inform
     }
 }
 //Get the baseline (pedestal and RMS) informations computed between x1 and x2
-Waveform::baseline_informations Waveform::baseline(const int& x1, const int& x2) const
+Waveform::baseline_informations Waveform::baseline(const int& x1, const int& x2, bool fitSlope) const
 {
 
   baseline_informations return_value;
@@ -415,18 +415,49 @@ Waveform::baseline_informations Waveform::baseline(const int& x1, const int& x2)
 
   double mean=0;
   double rms=0;
-
+  double x[x2-x1+1];
+  double y[x2-x1+1];
+  double syy=0,sxy=0,sxx=0,sx=0,sy=0;
+	  
   for (unsigned int i(x1);i<=x2;++i)
     {
       mean+=_samples[i];
       rms+=_samples[i]*_samples[i];
+      x[i-x1]=_times[i]*1e9;
+      y[i-x1]=_samples[i];
+      syy+=y[i-x1]*y[i-x1];
+      sxy+=x[i-x1]*y[i-x1];
+      sxx+=x[i-x1]*x[i-x1];
+      sy+=y[i-x1];
+      sx+=x[i-x1];
     }
-
+  
   mean=mean/(double)(x2-x1+1);
   rms=TMath::Sqrt((x2-x1+1)/(x2-x1))*TMath::Sqrt( rms/(x2-x1+1) - mean*mean );
-  return_value.pedestal = mean;
-  return_value.rms = rms;
+  
+  if (!fitSlope)
+    {
+      return_value.pedestal = mean;
+      return_value.rms = rms;
+      return_value.slope = 0;
+    }
+  else
+    {
+      double nSamples = x2-x1+1;
+      double b = (nSamples*sxy-sx*sy)/(nSamples*sxx - sx*sx);
+      double a = (sy - b*sx)/nSamples;
 
+      return_value.pedestal = a;
+      return_value.rms = rms;
+      return_value.slope = b;
+
+      // std::cout << "BASELINE INFOS SLOPE: " 
+      // 		<< "\tPED " << return_value.pedestal 
+      // 		<< "\tRMS " << return_value.rms 
+      // 		<< "\tSLOPE " << return_value.slope
+      // 		<< std::endl;
+    }
+      
   return return_value;
 
 };
