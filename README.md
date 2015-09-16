@@ -16,7 +16,7 @@ FastTimeTestBeamAnalysis/lib
 containing the relevant functions for the reconstruction (based on H4DQM utils).
 Before running the executable one must updated the environment variables with
 ```
-source test/setup.(c)sh
+source scripts/setup.(c)sh
 ```
 
 ## Reconstruction step
