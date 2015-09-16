@@ -40,7 +40,7 @@ Waveform::max_amplitude_informations Waveform::max_amplitude(const int& x1, cons
     }
 
   int imax=-1;
-  float max=-999999.;
+  float max=-999.;
 
   for (int i(x1);i<=x2;++i)
     {
@@ -189,7 +189,11 @@ float Waveform::time_at_frac(const float& t1, const float& t2, const float& frac
 float Waveform::time_at_frac(const int& x1, const int& x2, const float& frac, const max_amplitude_informations& maxInfos, int SampleToInterpolate) const
 {
   int cfSample=maxInfos.sample_at_max;
-
+  if(cfSample>= (int)_samples.size())
+    {
+      std::cout << "[Waveform::time_at_frac] Sample at max (" << cfSample << ") >= size of samples...bailing out" << std::endl;
+      return -999.;
+    }
   //  std::cout << "===== " << x1 << "," << x2 << std::endl;
 
   for(int iSample=(int)maxInfos.sample_at_max; iSample>max(x1,0); iSample--)
@@ -254,7 +258,7 @@ float Waveform::time_at_frac(const int& x1, const int& x2, const float& frac, co
 	}
     }
 
-  return -999;
+  return -999.;
 };
 
 //Get the crossing time of the amplitude at a given threshold for times between t1 and t2 
