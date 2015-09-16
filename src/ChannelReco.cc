@@ -113,7 +113,7 @@ void ChannelReco::Fill(float valX, float valY, int i)
       if (i<0) x_.push_back(valX);
       else 
 	{
-	  if (x_.size()<=i) x_.resize(i+1);
+	  if ((int)x_.size()<=i) x_.resize(i+1);
 	  x_.at(i)=valX;
 	}
       (dynamic_cast<TH1F*>(plot_))->Fill(valX);
@@ -123,7 +123,7 @@ void ChannelReco::Fill(float valX, float valY, int i)
       if (i<0) { x_.push_back(valX); y_.push_back(valY); }
       else
 	{
-	  if (x_.size()<=i)
+	  if ((int)x_.size()<=i)
 	    {
 	      x_.resize(i+1);
 	      y_.resize(i+1);
@@ -157,7 +157,7 @@ void ChannelReco::Fill2D(float valX, float valY, float valZ, int i)
       if (i<0) {x_.push_back(valX); y_.push_back(valY);}
       else
 	{
-	  if (x_.size()<=i) 
+	  if ((int)x_.size()<=i) 
 	    {
 	      x_.resize(i+1);
 	      y_.resize(i+1);
@@ -176,7 +176,7 @@ void ChannelReco::Fill2D(float valX, float valY, float valZ, int i)
 	  z_.push_back(valZ);
 	}
       else {
-	if (x_.size()<=i) 
+	if ((int)x_.size()<=i) 
 	  {
 	    x_.resize(i+1);
 	    y_.resize(i+1);

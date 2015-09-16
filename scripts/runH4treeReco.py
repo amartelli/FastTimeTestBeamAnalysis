@@ -74,7 +74,8 @@ def main():
     stageCmd   = 'cmsStage -f' if '/store/' in opt.output else 'cp'
         
     #run 
-    os.system('cd %s && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:%s/lib && ./bin/RunH4treeReco %s %s %s && %s %s %s && rm %s && cd -' 
+    #os.system('cd %s && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:%s/lib && ./bin/RunH4treeReco %s %s %s && %s %s %s && rm %s && cd -' 
+    os.system('cd %s && source scripts/setup.sh && ./bin/RunH4treeReco %s %s %s && %s %s %s && rm %s && cd -' 
                   % (opt.base,
                      opt.base,
                      inputUrl,opt.cfg,localOutput,

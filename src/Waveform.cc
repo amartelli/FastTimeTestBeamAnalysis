@@ -13,14 +13,14 @@ float Waveform::charge_integrated(const int& x1, const int& x2, float pedestal) 
 
   float return_value = 0;
 
-  if (x1<0 || x2>(_samples.size()-1))
+  if (x1<0 || x2> int(_samples.size()-1))
     {
       if (WARNING_ERROR)
 	std::cout << "WARNING::charge_integrated::gate is outside samples range" << std::endl;
       return -9999.;
     }
   
-  for (unsigned int i(x1); i<=x2; i++){
+  for (int i(x1); i<=x2; i++){
     return_value+=_samples[i]-pedestal;
   }
   
@@ -32,7 +32,7 @@ Waveform::max_amplitude_informations Waveform::max_amplitude(const int& x1, cons
 {
   max_amplitude_informations return_value;  
 
-  if (x1<0 || x2>(_samples.size()-1))
+  if (x1<0 || x2>int(_samples.size()-1))
     {
       if (WARNING_ERROR)
 	std::cout << "WARNING::Waveform::max_amplitude::gate is outside samples range" << std::endl;
@@ -42,7 +42,7 @@ Waveform::max_amplitude_informations Waveform::max_amplitude(const int& x1, cons
   int imax=-1;
   float max=-999999.;
 
-  for (unsigned int i(x1);i<=x2;++i)
+  for (int i(x1);i<=x2;++i)
     {
       //      std::cout << "++++ " <<  i << "," << _times[i] << "," << _samples[i] << "," << max << "," << imax << std::endl;
       if (_samples[i]>=max)
@@ -58,7 +58,7 @@ Waveform::max_amplitude_informations Waveform::max_amplitude(const int& x1, cons
       float x[nSamplesAroundMax];
       float y[nSamplesAroundMax];
       int nSamples=0;
-      for (unsigned int i(0);i<nSamplesAroundMax;++i)
+      for (int i(0);i<nSamplesAroundMax;++i)
 	{
 	  if ( (imax-(nSamplesAroundMax-1)/2+i)>=x1 && (imax-(nSamplesAroundMax-1)/2+i)<=x2)
 	    {
@@ -116,7 +116,7 @@ float Waveform::interpolatedValue(const int& i1, int SampleToInterpolate) const
       double y[SampleToInterpolate];
       double syy=0,sxy=0,sxx=0,sx=0,sy=0;
       int nSamples=0;
-      for (unsigned int i(0);i<SampleToInterpolate;++i)
+      for (int i(0);i<SampleToInterpolate;++i)
 	{
 	  if ( (cfSample-(SampleToInterpolate-1)/2+i)>=0 && (cfSample-(SampleToInterpolate-1)/2+i)<=(int)_samples.size() )
 	    {
@@ -160,8 +160,9 @@ float Waveform::interpolatedValue(const int& i1, int SampleToInterpolate) const
 	    std::cout << "WARNING::Waveform::max_amplitude::not enough samples to interpolate. Returning -999." << std::endl;
 	  return -999.;
 	}
-
     }
+
+  return -999.;
 };
 
 
@@ -171,7 +172,7 @@ float Waveform::time_at_frac(const float& t1, const float& t2, const float& frac
   //std::cout << "_____ " << t1 << "," << t2 << std::endl;
   int tmin=0;
   int tmax=0;
-  for (unsigned int i(0);i<_times.size();++i)
+  for (int i(0);i<(int)_times.size();++i)
     {
       //      std::cout << i << "," << _times[i] << std::endl;
       if (_times[i]<t1)
@@ -207,7 +208,7 @@ float Waveform::time_at_frac(const int& x1, const int& x2, const float& frac, co
       double y[SampleToInterpolate];
       double syy=0,sxy=0,sxx=0,sx=0,sy=0;
       int nSamples=0;
-      for (unsigned int i(0);i<SampleToInterpolate;++i)
+      for (int i(0);i<SampleToInterpolate;++i)
 	{
 	  if ( (cfSample-(SampleToInterpolate-1)/2+i)>=max(x1,0) && (cfSample-(SampleToInterpolate-1)/2+i)<=min(x2,(int)_samples.size()))
 	    {
@@ -251,8 +252,9 @@ float Waveform::time_at_frac(const int& x1, const int& x2, const float& frac, co
 	    std::cout << "WARNING::Waveform::max_amplitude::not enough samples to fit fot maximum. Returning unfitted position" << std::endl;
 	  return _times[cfSample];
 	}
-
     }
+
+  return -999;
 };
 
 //Get the crossing time of the amplitude at a given threshold for times between t1 and t2 
@@ -261,7 +263,7 @@ std::vector<float> Waveform::time_at_threshold(const float& t1, const float& t2,
   //std::cout << "_____ " << t1 << "," << t2 << std::endl;
   int tmin=0;
   int tmax=0;
-  for (unsigned int i(0);i<_times.size();++i)
+  for (int i(0);i<(int)_times.size();++i)
     {
       //      std::cout << i << "," << _times[i] << std::endl;
       if (_times[i]<t1)
@@ -293,14 +295,14 @@ std::vector<float> Waveform::time_at_threshold(const int& x1, const int& x2, con
 
   std::vector<float> crossingTimes;
 
-  for(int icross=0;icross<cfSample.size();++icross)
+  for(int icross=0;icross<(int)cfSample.size();++icross)
     {
       double x[SampleToInterpolate];
       double y[SampleToInterpolate];
       double syy=0,sxy=0,sxx=0,sx=0,sy=0;
 
       int nSamples=0;
-      for (unsigned int i(0);i<SampleToInterpolate;++i)
+      for (int i(0);i<SampleToInterpolate;++i)
 	{
 
 	  if ( (cfSample[icross]-(SampleToInterpolate-1)/2+i)>=max(x1,0) && (cfSample[icross]-(SampleToInterpolate-1)/2+i)<=min(x2,(int)_samples.size()))
@@ -355,7 +357,7 @@ void Waveform::find_interesting_samples(int nSamples, const max_amplitude_inform
   //std::cout << "_____ " << t1 << "," << t2 << std::endl;
   int tmin=0;
   int tmax=0;
-  for (unsigned int i(0);i<_times.size();++i)
+  for (int i(0);i<(int)_times.size();++i)
     {
       //      std::cout << i << "," << _times[i] << std::endl;
       if (_times[i]<maxInfos.time_at_max-2.*riseTime)
@@ -371,19 +373,19 @@ void Waveform::find_interesting_samples(int nSamples, const max_amplitude_inform
     }
   else if ((tmax-tmin+1)<nSamples)
     {
-      if (_samples.size()<nSamples)
+      if ((int)_samples.size()<nSamples)
 	{
 	  x1=0;
-	  x2=_samples.size()-1;
+	  x2=(int)_samples.size()-1;
 	}
-      else if (tmin+nSamples-1<_samples.size())
+      else if (tmin+nSamples-1<(int)_samples.size())
 	{
 	  x1=tmin;
 	  x2=(tmin+nSamples-1);
 	}
       else
 	{
-	  x2=_samples.size();
+	  x2=(int)_samples.size();
 	  x1=x2-nSamples+1;
 	}
     }
@@ -399,7 +401,7 @@ Waveform::baseline_informations Waveform::baseline(const int& x1, const int& x2,
 
   baseline_informations return_value;
 
-  if (x1<0 || x2>(_samples.size()-1))
+  if (x1<0 || x2>((int)_samples.size()-1))
     {
       if (WARNING_ERROR)
 	std::cout << "WARNING::Waveform::baseline::gate is outside samples range" << std::endl;
@@ -419,7 +421,7 @@ Waveform::baseline_informations Waveform::baseline(const int& x1, const int& x2,
   double y[x2-x1+1];
   double syy=0,sxy=0,sxx=0,sx=0,sy=0;
 	  
-  for (unsigned int i(x1);i<=x2;++i)
+  for (int i(x1);i<=x2;++i)
     {
       mean+=_samples[i];
       rms+=_samples[i]*_samples[i];

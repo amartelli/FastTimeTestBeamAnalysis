@@ -39,7 +39,7 @@ class Waveform
   {
     _samples.resize(nSamples);
     _times.resize(nSamples);
-      for (unsigned int i(0);i<nSamples;++i)
+      for (int i(0);i<nSamples;++i)
 	{
 	  _samples[i]=samples[i];
 	  _times[i]=times[i];
