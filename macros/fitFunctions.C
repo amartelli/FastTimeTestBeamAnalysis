@@ -63,3 +63,9 @@ Double_t sigFunc(Double_t *x, Double_t *par)
   return par[0]*TMath::Gaus(x[0],par[1],par[2])+lanconvgau(x,&par[3]);
 }
 
+Double_t sigFuncFixedNoiseResol(Double_t *x, Double_t *par) 
+{
+  par[6]=par[2];
+  return par[0]*TMath::Gaus(x[0],par[1],par[2])+lanconvgau(x,&par[3]);
+}
+
