@@ -35,7 +35,7 @@ def summarizeFor(ntuple,title,var,varUnc=None,outDir='./'):
 
             if 'mip_Si' in var:
                 chi2ndof=getattr(ntuple,'chi2ndof_Si'+sipad)
-                if chi2ndof>2 or chi2ndof<0.5:
+                if chi2ndof>4 or chi2ndof<0.1:
                     continue
                 if varValUnc/varVal < 0.01 :
                     continue
@@ -124,7 +124,7 @@ def main(argv=sys.argv):
     fIn=ROOT.TFile.Open(url)
     ntuple=fIn.Get('summary')
     
-    for title,var,varUnc in [ ('#chi^2/ndf','chi2ndof_Si', None),
+    for title,var,varUnc in [ ('#chi^{2}/ndof','chi2ndof_Si', None),
                               ('MIP [ADC]','mip_Si','mipUnc_Si'),
                               ('<Noise> [ADC]','noise_Si','noiseUnc_Si'),
                               ('#sigma_{noise} [ADC]','noiseSigma_Si','noiseSigmaUnc_Si'),

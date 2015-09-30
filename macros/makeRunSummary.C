@@ -42,7 +42,7 @@ enum MIPFitMode_t { FIXEDNOISE=0, CORRELATEDNOISE=1, INDEPENDENTNOISE=2 };
 
 
 //pedestal control in empty events
-void doPedestals(TTree* H4treeReco,TCanvas *c,TString outDir)
+void doPedestals(TTree* H4treeReco,TCanvas *c,TString outDir,TString siChargeEst="charge_integ_smallw_mcp")
 {
 
   std::map<Int_t,Float_t> pedestalsPerChannel;
@@ -54,7 +54,7 @@ void doPedestals(TTree* H4treeReco,TCanvas *c,TString outDir)
       pedestalEvolGr->SetMarkerStyle(20);
       pedestalEvolGr->SetFillStyle(0);
 
-      TString chargeEst("charge_integ_smallw_mcp");
+      TString chargeEst(siChargeEst);
       if(ich==1) chargeEst="wave_max";
 
       //project pedestal vs spill to trace the evolution throughout the run, estimate from gaussian fit
@@ -163,7 +163,7 @@ void doPedestals(TTree* H4treeReco,TCanvas *c,TString outDir)
 }
 
 //beamspot position
-void determineFiducialBeamSpotFromWireChambers(TTree* H4treeReco,TCanvas *c,TString outDir,bool doSiFiducial)
+void determineFiducialBeamSpotFromWireChambers(TTree* H4treeReco,TCanvas *c,TString outDir,bool doSiFiducial,TString siChargeEst="charge_integ_smallw_mcp")
 {
 
   Double_t bsq_x[4]   ={0.05, 0.50, 0.90, 0.95};
@@ -186,13 +186,13 @@ void determineFiducialBeamSpotFromWireChambers(TTree* H4treeReco,TCanvas *c,TStr
 
 	  Float_t baselineSi1(runSummary.pedestals.find(2)!=runSummary.pedestals.end() ? runSummary.pedestals[2] : 0.0);
 	  Float_t baselineWidthSi1(runSummary.pedestalsSigma.find(2)!=runSummary.pedestalsSigma.end() ? runSummary.pedestalsSigma[2] : 0.0);
-	  finalCut += Form("charge_integ_smallw_mcp[2]-%f>2*%f",baselineSi1,baselineWidthSi1);
+	  finalCut += Form("%s[2]-%f>2*%f",siChargeEst.Data(),baselineSi1,baselineWidthSi1);
 
 	  finalCut +=" && ";
 
 	  Float_t baselineSi2(runSummary.pedestals.find(3)!=runSummary.pedestals.end() ? runSummary.pedestals[3] : 0.0);
 	  Float_t baselineWidthSi2(runSummary.pedestalsSigma.find(3)!=runSummary.pedestalsSigma.end() ? runSummary.pedestalsSigma[3] : 0.0);
-	  finalCut += Form("charge_integ_smallw_mcp[3]-%f>2*%f",baselineSi2,baselineWidthSi2);
+	  finalCut += Form("%s[3]-%f>2*%f",siChargeEst.Data(),baselineSi2,baselineWidthSi2);
 	}
 
       TGraphAsymmErrors *bsxEvolGr=new TGraphAsymmErrors();
@@ -347,12 +347,12 @@ void determineFiducialBeamSpotFromWireChambers(TTree* H4treeReco,TCanvas *c,TStr
 }
 
 //
-void doMIPfits(TTree* H4treeReco,TCanvas *c,TString outDir,int mode=0,Int_t fitMode=CORRELATEDNOISE)
+void doMIPfits(TTree* H4treeReco,TCanvas *c,TString outDir,int mode=0,Int_t fitMode=CORRELATEDNOISE,TString siChargeEst="charge_integ_smallw_mcp")
 {
   TString wcCut("wc_xl_hits[0]!=0 && wc_xr_hits[0]!=0 && wc_xl_hits[1]!=0 && wc_xr_hits[1]!=0");
 
   TF1* fitFunc=new TF1("fitFunc",fitMode==INDEPENDENTNOISE ? sigFunc : sigFuncFixedNoiseResol,-100,400,7);
-  fitFunc->SetNpx(25);
+  //fitFunc->SetNpx(25);
   fitFunc->SetParName(0,"N_{noise}");
   fitFunc->SetParName(1,"#mu_{noise}");
   fitFunc->SetParName(2,fitMode==INDEPENDENTNOISE ? "#sigma_{noise}^{2}" : "#sigma_{noise}");
@@ -396,22 +396,21 @@ void doMIPfits(TTree* H4treeReco,TCanvas *c,TString outDir,int mode=0,Int_t fitM
 	    {
 	      Float_t xmin(runSummary.x005[1]),xmax(runSummary.x095[1]),ymin(runSummary.y005[1]),ymax(runSummary.y095[1]);
 	      trigCut += Form("wc_recox[1]>%f && wc_recox[1]<%f && wc_recoy[1]>%f && wc_recoy[1]<%f &&",xmin,xmax,ymin,ymax);
-	      trigCut += Form("charge_integ_smallw_mcp[%d]-%f>%d*%f",otherSiPadCh,baselineOtherSiPad,nSigma,baselineWidthOtherSiPad);
+	      trigCut += Form("%s[%d]-%f>%d*%f",siChargeEst.Data(),otherSiPadCh,baselineOtherSiPad,nSigma,baselineWidthOtherSiPad);
 	    }
 	  
-	  H4treeReco->Draw(Form("charge_integ_smallw_mcp[%d]-%f >> signal(50,-100,400)",ich,baseline),wcCut+" && "+trigCut);
+	  H4treeReco->Draw(Form("%s[%d]-%f >> signal(50,-100,400)",siChargeEst.Data(),ich,baseline),wcCut+" && "+trigCut);
 
 	  TH1F* signal=(TH1F*)gROOT->FindObject("signal");
 	  signal->Sumw2();
 	  
-	  fitFunc->SetParLimits(0,0,signal->Integral()*100);
+	  fitFunc->SetParLimits(0,0,signal->Integral()*10000);
 	  fitFunc->FixParameter(1,0);	  
 	  fitFunc->FixParameter(2,baselineWidth);
-	  fitFunc->SetParLimits(3,1e-3,100);
-	  fitFunc->SetParLimits(4,10,400);
-	  fitFunc->SetParLimits(5,0,signal->Integral()*100);
+	  fitFunc->SetParLimits(3,5,400);
+	  fitFunc->SetParLimits(4,0,400);
+	  fitFunc->SetParLimits(5,0,signal->Integral()*10000);
 	  fitFunc->FixParameter(6,baselineWidth);
-	  signal->Fit("fitFunc","BRLMQ");
 	  
 	  if(fitMode!=FIXEDNOISE)
 	    {
@@ -420,9 +419,11 @@ void doMIPfits(TTree* H4treeReco,TCanvas *c,TString outDir,int mode=0,Int_t fitM
 	      if(fitMode==CORRELATEDNOISE)
 		fitFunc->FixParameter(6,baselineWidth);
 	      else
-		fitFunc->SetParLimits(6,baselineWidth*0.8,baselineWidth*1.2);
-	      signal->Fit("fitFunc","BRLMQ");
+		fitFunc->SetParLimits(6,baselineWidth*0.8,baselineWidth*1.2);	     
 	    }
+
+	  signal->Fit("fitFunc","BRMQ");
+
 
 	  if(mode==1)
 	    {
@@ -526,7 +527,7 @@ void printSummary(TString outDir)
 }
 
 //
-RunSummary_t analyzeRun(TString url="root://eoscms//eos/cms/store/cmst3/group/hgcal/TimingTB_H2_Jul2015/RECO/3eb93c8/RECO_3373.root",TString outDir="~/www/X0PbRuns",Int_t fitMode=CORRELATEDNOISE)
+RunSummary_t analyzeRun(TString url="root://eoscms//eos/cms/store/cmst3/group/hgcal/TimingTB_H2_Jul2015/RECO/3eb93c8/RECO_3373.root",TString outDir="~/www/X0PbRuns",Int_t fitMode=CORRELATEDNOISE,TString siChargeEst="charge_integ_smallw_mcp")
 {
   gStyle->SetOptTitle(0);
   gStyle->SetOptStat(0);
@@ -570,16 +571,16 @@ RunSummary_t analyzeRun(TString url="root://eoscms//eos/cms/store/cmst3/group/hg
   runSummary.yinc095.clear();
 
   //pedestals (2nd time computes residuals)
-  doPedestals(H4treeReco,c,outDir);
-  doPedestals(H4treeReco,c,outDir);
+  doPedestals(H4treeReco,c,outDir,siChargeEst);
+  doPedestals(H4treeReco,c,outDir,siChargeEst);
 
   //beamspot
-  determineFiducialBeamSpotFromWireChambers(H4treeReco,c,outDir,false);
-  determineFiducialBeamSpotFromWireChambers(H4treeReco,c,outDir,true);
+  determineFiducialBeamSpotFromWireChambers(H4treeReco,c,outDir,false,siChargeEst);
+  determineFiducialBeamSpotFromWireChambers(H4treeReco,c,outDir,true,siChargeEst);
 
   //MIP fits
-  doMIPfits(H4treeReco,c,outDir,0,fitMode);
-  doMIPfits(H4treeReco,c,outDir,1,fitMode);
+  doMIPfits(H4treeReco,c,outDir,0,fitMode,siChargeEst);
+  doMIPfits(H4treeReco,c,outDir,1,fitMode,siChargeEst);
 
   printSummary(outDir);
 
@@ -590,32 +591,29 @@ RunSummary_t analyzeRun(TString url="root://eoscms//eos/cms/store/cmst3/group/hg
 }
 
 //wrapper for all the MIP runs
-void makeRunSummary(Int_t fitMode=FIXEDNOISE,Int_t saveMIPFor=2,TString outDir="~/www/HGCal/FastTimeTB/MIPCalibrationRuns")
+void makeRunSummary(Int_t fitMode=FIXEDNOISE,Int_t saveMIPFor=2,TString outDir="~/www/HGCal/FastTimeTB/MIPCalibrationRuns",TString siChargeEst="charge_integ_smallw_mcp")
 {
   if(fitMode==FIXEDNOISE)       outDir += "_fixednoise";
   if(fitMode==CORRELATEDNOISE)  outDir += "_correlatednoise";
   if(fitMode==INDEPENDENTNOISE) outDir += "_indnoise";
   outDir += "_mipAt"; outDir+=saveMIPFor;
+  outDir += "_";      outDir+=siChargeEst;
   gSystem->Exec("mkdir -p " +outDir);
 
   TFile *fIn=TFile::Open(outDir+"/summary.root","RECREATE");
   TNtuple *ntuple = new TNtuple("summary",
 				"summary",
-				"run:siwidth:beam:xcen:xcenUnc:ycen:ycenUnc:noise_Si1:noiseUnc_Si1:noiseSigma_Si1:noiseSigmaUnc_Si1:noise_Si2:noiseUnc_Si2:noiseSigma_Si2:noiseSigmaUnc_Si2:mip_Si1:mipUnc_Si1:chi2ndof_Si1:mip_Si2:mipUnc_Si2:chi2ndof_Si2");
+				"run:xcen:xcenUnc:ycen:ycenUnc:noise_Si1:noiseUnc_Si1:noiseSigma_Si1:noiseSigmaUnc_Si1:noise_Si2:noiseUnc_Si2:noiseSigma_Si2:noiseSigmaUnc_Si2:mip_Si1:mipUnc_Si1:chi2ndof_Si1:mip_Si2:mipUnc_Si2:chi2ndof_Si2");
   ntuple->SetDirectory(0);
 
   Int_t runs[]    = {3370,3371,3372,3373,3374,3375,3376,3363,3369,3346};
-  Int_t siWidth[] = {200, 200, 200, 200, 200, 200, 200, 120, 200, 300};
-  Int_t pid[]     = {13,  13,  13,  13,  13,  13,  13,  11,  11,  11};
   for(size_t i=0; i<sizeof(runs)/sizeof(Int_t); i++)
     {
       TString url("root://eoscms//eos/cms/store/cmst3/group/hgcal/TimingTB_H2_Jul2015/RECO/3eb93c8/RECO_");
       url += runs[i];
       url += ".root";
-      analyzeRun(url,outDir,fitMode);
+      analyzeRun(url,outDir,fitMode,siChargeEst);
       Float_t vars[]={(Float_t) runs[i],
-		      (Float_t) siWidth[i],
-		      (Float_t) pid[i],
 		      runSummary.x050[1],
 		      (Float_t) 0.5*fabs(runSummary.x095[1]-runSummary.x005[1]),
 		      runSummary.y050[1],
