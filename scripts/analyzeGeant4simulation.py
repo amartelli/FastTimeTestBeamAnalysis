@@ -10,13 +10,17 @@ Fits a Landau to the spectra to get MIP calibration
 """
 def runMIPcalibration(fileMap):
 
+    
+    print 'Starting MIP calibration'
+
     #loop over the trees to fill histos
     mipCalibHistos={}
     for key in fileMap:
         if not 'mu-' in fileMap[key] : continue
+        print fileMap[key]['mu-']
         siWidth,_ = key
         fIn=ROOT.TFile.Open(fileMap[key]['mu-'])
-        H4treeSim=fIn.Get('H4treeSim')
+        H4treeSim=fIn.Get('H4treeReco')
         for i in xrange(0,H4treeSim.GetEntriesFast()):
             H4treeSim.GetEntry(i)
             for ich in xrange(0,H4treeSim.maxch):
@@ -94,7 +98,8 @@ def runElectronAnalysis(fileMap,mipCalib):
 
         edeps,edeps_full={},{}
         fIn=ROOT.TFile.Open(fileMap[key]['e-'])
-        H4treeSim=fIn.Get('H4treeSim')
+        print fileMap[key]['e-']
+        H4treeSim=fIn.Get('H4treeReco')
         for i in xrange(0,H4treeSim.GetEntriesFast()):
             H4treeSim.GetEntry(i)
             for ich in xrange(0,H4treeSim.maxch):
@@ -189,7 +194,7 @@ def showSummaryPlots(url):
         c.Modified()
         c.Update()
         c.SaveAs('%s.png' % name)
-        raw_input()
+        #raw_input()
 
 
 """
@@ -218,7 +223,13 @@ def main():
         particle= tkns[ tkns.index('TBSim')+1 ]
         siWidth=version/10
         x0=version-siWidth*10
-        key=(siWidth,x0)
+
+        #see FTTB215Conditions.py/DetectorConstruction.cc for the depleted thickness @ 600V
+        trueSiWidth=140.5
+        if siWidth==200: trueSiWidth=215.75
+        if siWidth==320 : trueSiWidth=288.5
+
+        key=(trueSiWidth,x0)
         if not key in fileMap: fileMap[key]={}
         fileMap[key][particle]=f
 
