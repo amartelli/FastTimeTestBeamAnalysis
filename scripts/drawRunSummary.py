@@ -7,52 +7,48 @@ import ROOT
 from FTTB215Conditions import CONDITIONS,DIODES
 
 COLORS ={11:1,13:ROOT.kGray+1}
-MARKERS={(11,''):22,(11,'1'):22,(11,'2'):26,(13,''):20,(13,'1'):20,(13,'2'):24}
+MARKERS={(11,2):22,(11,3):26,(13,2):20,(13,3):24}
 
-def summarizeFor(ntuple,title,var,varUnc=None,outDir='./'):
+def summarizeResultsFor(ntuple,chargeEst,siPadSel,fitType,title,var,varUnc=None,outDir='./'):
 
     grColl={}
-    subDets=['1','2']
-    if 'cen' in var : subDets=['']
-    for i in xrange(0,ntuple.GetEntriesFast()):
+    for i in xrange(0,ntuple.GetEntries()):
 
         ntuple.GetEntry(i)
 
-        runConds = [x for x in CONDITIONS if x[2]==ntuple.run][0]
+        if chargeEst!=ntuple.chargeEstimator : continue
+        if siPadSel>0 and ntuple.siPad!=siPadSel:continue
+        if fitType != ntuple.fitType : continue
+        if ntuple.prob<0.01 : continue
+        if ntuple.adc2mipUnc/ntuple.adc2mip>0.2: continue
+        #if ntuple.adc2mipUnc/ntuple.adc2mip<0.05 : continue
+
+        #run conditions
+        runConds = [x for x in CONDITIONS if x[2]==ntuple.runNumber][0]
         beam     = runConds[0]
         beamEn   = runConds[1]
         diode    = runConds[5]
         siwidth  = DIODES[diode][3]
 
-        for sipad in subDets:
+        varVal=getattr(ntuple,var)
+        varValUnc=0
+        try:
+            varValUnc=getattr(ntuple,varUnc)
+        except:
+            pass
 
-            varVal=getattr(ntuple,var+sipad)
-            varValUnc=0
-            try:
-                varValUnc=getattr(ntuple,varUnc+sipad)
-            except:
-                pass
-
-            if 'mip_Si' in var:
-                chi2ndof=getattr(ntuple,'chi2ndof_Si'+sipad)
-                if chi2ndof>4 or chi2ndof<0.1:
-                    continue
-                if varValUnc/varVal < 0.01 :
-                    continue
-
-            key=(beam,sipad)
-            if not key in grColl:
-                grColl[key]=ROOT.TGraphErrors();
-                grColl[key].SetName('%s_%d_%s' % (var,beam,sipad) )
-                grColl[key].SetMarkerStyle( MARKERS[(beam,sipad)] )
-                grColl[key].SetMarkerColor( COLORS[beam] )
-                grColl[key].SetLineColor( COLORS[beam] )
-                grColl[key].SetLineWidth(2)
-                grColl[key].SetFillStyle(0)
+        if not beam in grColl:
+            grColl[beam]=ROOT.TGraphErrors();
+            grColl[beam].SetName('%s_beam%d_si%s_fit%d_chargeEst%d' % (var,beam,siPadSel,fitType,chargeEst) )
+            grColl[beam].SetMarkerStyle( MARKERS[(beam,ntuple.siPad)] )
+            grColl[beam].SetMarkerColor( COLORS[beam] )
+            grColl[beam].SetLineColor( COLORS[beam] )
+            grColl[beam].SetLineWidth(2)
+            grColl[beam].SetFillStyle(0)
                 
-            np=grColl[key].GetN()
-            grColl[key].SetPoint(np,siwidth,varVal)    
-            grColl[key].SetPointError(np,0,varValUnc)    
+        np=grColl[beam].GetN()
+        grColl[beam].SetPoint(np,siwidth,varVal)    
+        grColl[beam].SetPointError(np,0,varValUnc)    
   
     c=ROOT.TCanvas('c','c',500,500)
     c.SetTopMargin(0.05)
@@ -60,27 +56,26 @@ def summarizeFor(ntuple,title,var,varUnc=None,outDir='./'):
     c.SetLeftMargin(0.12)
     c.SetBottomMargin(0.12)
     drawOpt='ap'
-    leg1=ROOT.TLegend(0.20,0.85,0.24,0.7,'' if 'cen' in var else 'Si1')
-    leg1.SetBorderSize(0)
-    leg1.SetFillStyle(0)
-    leg1.SetTextFont(42)
-    leg1.SetTextSize(0.035)
-    leg2=ROOT.TLegend(0.25,0.85,0.40,0.7, '' if 'cen' in var else 'Si2')
-    leg2.SetBorderSize(0)
-    leg2.SetFillStyle(0)
-    leg2.SetTextFont(42)
-    leg2.SetTextSize(0.035)
+    #leg1=ROOT.TLegend(0.20,0.85,0.24,0.7,'' if 'cen' in var else 'Si1')
+    #leg1.SetBorderSize(0)
+    #leg1.SetFillStyle(0)
+    #leg1.SetTextFont(42)
+    #leg1.SetTextSize(0.035)
+    #leg2=ROOT.TLegend(0.25,0.85,0.40,0.7, '' if 'cen' in var else 'Si2')
+    #leg2.SetBorderSize(0)
+    #leg2.SetFillStyle(0)
+    #leg2.SetTextFont(42)
+    #leg2.SetTextSize(0.035)
     mg=ROOT.TMultiGraph()
 
-    toPlot=[ (11,'1'), (11,'2'),(13,'1'),(13,'2')]
-    if 'cen' in var : toPlot=[(11,''),(13,'')]
-    for key in toPlot: 
-        if key[1]=='1':
-            leg1.AddEntry(grColl[key],'','p')
-        else:
-            beamName='e^{-} (50 GeV)'
-            if key[0]==13: beamName='#mu^{-}(150 GeV)'
-            leg2.AddEntry(grColl[key],beamName,'p')
+
+    for key in grColl:
+        #if key[1]=='1':
+        #    leg1.AddEntry(grColl[key],'','p')
+        #else:
+        #    beamName='e^{-} (50 GeV)'
+        #    if key[0]==13: beamName='#mu^{-}(150 GeV)'
+        #    leg2.AddEntry(grColl[key],beamName,'p')
         mg.Add(grColl[key])
 
     mg.Draw('ap')
@@ -88,18 +83,18 @@ def summarizeFor(ntuple,title,var,varUnc=None,outDir='./'):
     mg.GetYaxis().SetTitle(title)
     #mg.GetYaxis().SetRangeUser(0.5*grColl[key].GetYaxis().GetXmin(),grColl[key].GetYaxis().GetXmax()*1.5)
     
-    if not 'cen' in var : leg1.Draw()
-    leg2.Draw()
+    #if not 'cen' in var : leg1.Draw()
+    #leg2.Draw()
     txt=ROOT.TLatex()
     txt.SetNDC()
     txt.SetTextFont(42)
     txt.SetTextSize(0.035)
     txt.DrawLatex(0.2,0.88,"#splitline{#bf{CMS} #it{work in progress}}{#scale[0.8]{#it{Fast-timing testbeam}}}")
 
-    if var=='mip_Si' :
+    if var=='adc2mip':
         fitfunc=ROOT.TF1('pol1','[0]*x',0,500)
         mg.Fit(fitfunc,'','0')
-        
+
         hint = ROOT.TH1D("f95",'',100,100,350)
         ROOT.TVirtualFitter.GetFitter().GetConfidenceIntervals(hint)
         hint.SetStats(False)
@@ -111,7 +106,7 @@ def summarizeFor(ntuple,title,var,varUnc=None,outDir='./'):
         txt.DrawLatex(0.6,0.89,'#splitline{#scale[0.8]{MIP/Si depletion thickness}}{(%3.3f#pm%3.3f) ADC/#mum}'%
                       (fitfunc.GetParameter(0),fitfunc.GetParError(0)))
     
-    c.SaveAs(outDir+'/'+var+'.png')
+    c.SaveAs(outDir+'/'+var+'_si%d_fit%d_chargeEst%d.png'%(siPadSel,fitType,chargeEst))
 
 
 def main(argv=sys.argv):
@@ -119,19 +114,22 @@ def main(argv=sys.argv):
     ROOT.gStyle.SetOptTitle(0)
     ROOT.gROOT.SetBatch(True)
     
-    url=argv[1]
-    baseDir=os.path.dirname(url)
-    fIn=ROOT.TFile.Open(url)
-    ntuple=fIn.Get('summary')
-    
-    for title,var,varUnc in [ ('#chi^{2}/ndof','chi2ndof_Si', None),
-                              ('MIP [ADC]','mip_Si','mipUnc_Si'),
-                              ('<Noise> [ADC]','noise_Si','noiseUnc_Si'),
-                              ('#sigma_{noise} [ADC]','noiseSigma_Si','noiseSigmaUnc_Si'),
-                              ('<x> [mm]','xcen','xcenUnc'),
-                              ('<y> [mm]','ycen','ycenUnc'),
+    baseDir=argv[1]
+    dir_list = next(os.walk(baseDir))[1]
+    chain=ROOT.TChain('mipcalib')
+    for irun in dir_list:
+        chain.Add(os.path.join(baseDir,irun+'/fitsummary.root'))
+    print chain.GetEntries()
+
+
+    for title,var,varUnc in [ ('MIP [ADC]','adc2mip','adc2mipUnc'),
+                              ('#xi/MIP','relWidth','relWidthUnc'),
+                              ('S(1)/N','mip1frac','mip1fracUnc'),
                               ]:
-        summarizeFor(ntuple,title,var,varUnc,baseDir)
+        for chargeEst in [0,1]:
+            for siPadSel in [-1,2,3]:
+                for fitType in [1,2,3,4]:
+                    summarizeResultsFor(chain,chargeEst,siPadSel,fitType,title,var,varUnc,baseDir)
 
 if __name__ == "__main__":
     main()

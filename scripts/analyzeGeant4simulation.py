@@ -9,7 +9,6 @@ from scipy.stats.mstats import mquantiles
 Fits a Landau to the spectra to get MIP calibration
 """
 def runMIPcalibration(fileMap):
-
     
     print 'Starting MIP calibration'
 
@@ -17,7 +16,7 @@ def runMIPcalibration(fileMap):
     mipCalibHistos={}
     for key in fileMap:
         if not 'mu-' in fileMap[key] : continue
-        print fileMap[key]['mu-']
+        print '\t analyzing ',fileMap[key]['mu-']
         siWidth,_ = key
         fIn=ROOT.TFile.Open(fileMap[key]['mu-'])
         H4treeSim=fIn.Get('H4treeReco')
@@ -26,6 +25,10 @@ def runMIPcalibration(fileMap):
             for ich in xrange(0,H4treeSim.maxch):
                 chNb=H4treeSim.ch[ich]                
                 calibKey=(siWidth,chNb)
+
+                #no point in looking to stuff below 5 keV
+                if H4treeSim.charge_integ[ich]<5 : continue
+
                 if not calibKey in mipCalibHistos: 
                     mipCalibHistos[calibKey]=ROOT.TH1F('mipcalib_%d_%d'%(siWidth,chNb),';Energy [keV];Events;',250,0,250)
                     mipCalibHistos[calibKey].SetDirectory(0)
@@ -40,10 +43,6 @@ def runMIPcalibration(fileMap):
         mean=mipCalibHistos[calibKey].GetMean()
         rms=mipCalibHistos[calibKey].GetRMS()
         mipCalibHistos[calibKey].Fit('landau','LMRQ+','',mean-0.7*rms,mean+0.4*rms)
-
-        #uncomment to spy
-        #mipCalibHistos[calibKey].Draw()
-        #raw_input()
 
         lan=mipCalibHistos[calibKey].GetFunction('landau')
 
