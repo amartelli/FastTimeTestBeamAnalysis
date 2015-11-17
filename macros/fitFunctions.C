@@ -3,6 +3,8 @@
 #include "TROOT.h"
 #include "TStyle.h"
 #include "TMath.h"
+#include "Math/Math.h"
+#include "Math/PdfFuncMathCore.h"
 
 Double_t lanconvgau(Double_t *x, Double_t *par) {
 
@@ -84,6 +86,37 @@ Double_t sigFunc(Double_t *x, Double_t *par)
   
   par[10]=par[2];
   float mip2=lanconvgau(x,&par[7]);  
+  return noise+mip1+mip2;
+}
+
+
+
+Double_t sigFuncCB(Double_t *x, Double_t *par) 
+{
+  float noise=par[0]*ROOT::Math::crystalball_pdf(x[0],par[3], par[4], par[2], par[1]);
+
+  par[8]=par[2];
+  float mip1=lanconvgau(x,&par[5]);
+
+  //the second landau is assumed to be a sum of 3 random variables Landau distributed as the first
+  Float_t relSigma[6]     = {0.05,0.1,0.15,0.2,0.25,0.3};
+  Float_t mpv2expAt3[6]   = {1.05378, 1.10648, 1.1656, 1.2134, 1.26354, 1.3175};
+  Float_t sigma2expAt3[6] = {1.70535, 1.70993, 1.7061, 1.6877, 1.70211, 1.6669};
+  Float_t tryRelSigma(par[5]>0 ? par[6]/par[5] : 0.051);
+  if(tryRelSigma>0.3) tryRelSigma=0.299;
+  par[10]=mpv2expAt3[0]*3*par[6];
+  par[9]=sigma2expAt3[0]*TMath::Sqrt(3.0)*par[5];
+  for(size_t i=0; i<5; i++)
+    {
+      if(tryRelSigma<relSigma[i] || tryRelSigma>=relSigma[i+1]) continue;
+      par[10]=mpv2expAt3[i]*3*par[6];
+      par[9]=sigma2expAt3[i]*TMath::Sqrt(3.0)*par[5];
+    }
+
+  par[12]=par[2];
+  float mip2=lanconvgau(x,&par[9]);  
+
+  //sum up all contributions
   return noise+mip1+mip2;
 }
 

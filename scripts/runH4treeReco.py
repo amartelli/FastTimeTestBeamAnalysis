@@ -4,6 +4,7 @@ import os
 import sys
 import optparse
 import commands
+from subprocess import Popen,PIPE
 
 EOSPREFIX='root://eoscms//eos/cms'
 
@@ -11,6 +12,8 @@ EOSPREFIX='root://eoscms//eos/cms'
 processes locally or submits to batch the RECO step for a ROOT file or a directory of ROOT files
 """
 def main():
+
+    eos_cmd = '/afs/cern.ch/project/eos/installation/0.2.41/bin/eos.select'
 
     #tag production with current hash from git
     githash=commands.getstatusoutput('git describe --always')[1]
@@ -49,16 +52,20 @@ def main():
         if i.endswith('.root'):
             fileList.append(opt.input)
         else:
-            listCmd='ls %s | grep -ir .root' % i
             if '/store/' in i :
-                listCmd='cmsLs %s | awk \'{print $5}\'' % i
-            fileList=commands.getstatusoutput(listCmd)[1].split()
-
+                data = Popen([eos_cmd, 'ls', '/eos/cms/'+opt.input],stdout=PIPE)
+                out,err = data.communicate()
+                for line in out.split('\n'):
+                    if len(line.split()) == 0: continue
+                    if '.root' in line :
+                        fileList.append(EOSPREFIX+opt.input+'/'+line)
+            else:
+                listCmd='ls %s | grep -ir .root' % i
+                fileList=commands.getstatusoutput(listCmd)[1].split()
+    
     #build list of tasks
     inputUrl=''
-    for f in fileList :
-        if '/store/' in f and not EOSPREFIX in f:  f='%s/%s' % (EOSPREFIX,f)
-        inputUrl += f +','
+    for f in fileList : inputUrl += f +','
     inputUrl=inputUrl[:-1]
 
     #local output

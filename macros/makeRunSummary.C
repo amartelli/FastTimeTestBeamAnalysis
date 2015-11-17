@@ -559,6 +559,48 @@ void runMIPFits(Int_t run,TString inDir,Bool_t allowSecondPeak)
 	      h->SetLineColor(1);
 	      h->SetMarkerStyle(20);
 	      h->SetMarkerColor(1);
+
+	      TF1* fitFunc=new TF1("fitFunc",sigFuncCB,minCharge,maxCharge,13);
+	      
+	      fitFunc->SetParName(0,"N_{0}");
+	      fitFunc->SetParName(1,"pedestal");
+	      fitFunc->SetParName(2,"#sigma_{noise}");
+	      fitFunc->SetParName(3,"#alpha_{CB}");
+	      fitFunc->SetParName(4,"n_{CB}");
+	      fitFunc->SetParName(5,"#xi_{1}");
+	      fitFunc->SetParName(6,"MPV_{1}");
+	      fitFunc->SetParName(7,"N_{1}");
+	      fitFunc->SetParName(8,"#sigma_{noise}");
+	      if(allowSecondPeak)
+		{
+		  fitFunc->SetParName(9,"#xi_{2}");
+		  fitFunc->SetParName(10,"MPV_{2}");
+		  fitFunc->SetParName(11,"N_{2}");
+		  fitFunc->SetParName(12,"#sigma_{noise}");
+		}
+
+	      //crystal-ball
+	      fitFunc->SetParLimits(0,0.,h->Integral());
+	      fitFunc->FixParameter(1,0.);
+	      //if(ifit==4) fitFunc->SetParLimits(1,-noiseVar->getVal(),noiseVar->getVal());
+	      fitFunc->FixParameter(2,noiseVar->getVal());
+	      fitFunc->SetParLimits(3,0,10);
+	      fitFunc->FixParameter(4,1);
+	      
+	      //first peak
+	      fitFunc->SetParLimits(5,(iest==0 ? 9 : 1),  (iest==0 ? 35 : 20));
+	      fitFunc->SetParLimits(6,(iest==0 ? 90 : 5), (iest==0 ? 350 : 100));
+	      fitFunc->SetParLimits(7,0,h->Integral()*1000);
+	      fitFunc->FixParameter(8,noiseVar->getVal());
+	      
+	      fitFunc->FixParameter(9,0.1);
+	      fitFunc->FixParameter(10,0.);
+	      if(allowSecondPeak) fitFunc->SetParLimits(10,0,h->Integral()*10);
+	      else                fitFunc->FixParameter(10,0.);
+	      fitFunc->FixParameter(11,noiseVar->getVal());
+
+
+	      /*
 	      TF1* fitFunc=new TF1("fitFunc",sigFunc,minCharge,maxCharge,11);
 	      
 	      fitFunc->SetParName(0,"N_{0}");
@@ -591,6 +633,8 @@ void runMIPFits(Int_t run,TString inDir,Bool_t allowSecondPeak)
 	      if(allowSecondPeak) fitFunc->SetParLimits(9,0,h->Integral()*10);
 	      else                fitFunc->FixParameter(9,0.);
 	      fitFunc->FixParameter(10,noiseVar->getVal());
+	      */
+	      
 
 	      TFitResultPtr fitRes=h->Fit(fitFunc,"SERB+");
 	      //Int_t status = (Int_t)fitRes;
@@ -601,6 +645,7 @@ void runMIPFits(Int_t run,TString inDir,Bool_t allowSecondPeak)
 	      fitFunc->Draw();
 	      fitFunc->SetLineColor(kBlue);
 
+	      /*
 	      Double_t fitparams[11];
 	      fitFunc->GetParameters(fitparams);
 	      TF1 *mip1= new TF1("mip1",lanconvgau,minCharge,maxCharge,4);
@@ -637,6 +682,7 @@ void runMIPFits(Int_t run,TString inDir,Bool_t allowSecondPeak)
 		  c->SetLogy(false);
 		  fitFunc->GetYaxis()->SetRangeUser(0.1,h->GetMaximum()*1.3);
 		}
+	      */
 
 	      TLatex txt;
 	      txt.SetNDC();
