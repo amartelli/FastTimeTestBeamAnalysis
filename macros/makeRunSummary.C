@@ -37,6 +37,7 @@
 
 using namespace std;
 
+TString OUTEXTS[]={"png","pdf","C"};
 Bool_t doPedestalByQuantile=true;
 TString mcpChargeEst="wave_max";
 TString siChargeEst[]={"charge_integ_smallw_mcp","wave_fit_smallw_ampl"};
@@ -174,9 +175,13 @@ void doPedestals(TChain* H4treeReco,RooWorkspace *w, Float_t sigmaBias, TCanvas 
 		  txt.DrawLatex(0.15,0.93,CMSLABEL);
 		  txt.DrawLatex(0.8,0.93,Form("Run %d", runNumber)); 
 		  if(baselineVar)
-		    c->SaveAs(outDir+Form("/residualincnoisefit_%s_ch%d%s.png",chargeEst.Data(),ich,biasPostFix.Data()));
+		    {
+		      for(size_t i=0; i<sizeof(OUTEXTS)/sizeof(TString); i++)
+			c->SaveAs(outDir+Form("/residualincnoisefit_%s_ch%d%s.%s",chargeEst.Data(),ich,biasPostFix.Data(),OUTEXTS[i].Data()));
+		    }
 		  else
-		    c->SaveAs(outDir+Form("/incnoisefit_%s_ch%d%s.png",chargeEst.Data(),ich,biasPostFix.Data()));
+		    for(size_t i=0; i<sizeof(OUTEXTS)/sizeof(TString); i++)
+		      c->SaveAs(outDir+Form("/incnoisefit_%s_ch%d%s.%s",chargeEst.Data(),ich,biasPostFix.Data(),OUTEXTS[i].Data()));
 		}
 	      else
 		{
@@ -224,11 +229,13 @@ void doPedestals(TChain* H4treeReco,RooWorkspace *w, Float_t sigmaBias, TCanvas 
 
 	  if(baselineVar)
 	    {
-	      c->SaveAs(outDir+Form("/residualnoise_%s_ch%d%s.png",chargeEst.Data(),ich,biasPostFix.Data()));
+	      for(size_t i=0; i<sizeof(OUTEXTS)/sizeof(TString); i++)
+		c->SaveAs(outDir+Form("/residualnoise_%s_ch%d%s.%s",chargeEst.Data(),ich,biasPostFix.Data(),OUTEXTS[i].Data()));
 	    }
 	  else
 	    {
-	      c->SaveAs(outDir+Form("/noise_%s_ch%d%s.png",chargeEst.Data(),ich,biasPostFix.Data()));
+	      for(size_t i=0; i<sizeof(OUTEXTS)/sizeof(TString); i++)
+		c->SaveAs(outDir+Form("/noise_%s_ch%d%s.%s",chargeEst.Data(),ich,biasPostFix.Data(),OUTEXTS[i].Data()));
 	      w->factory(Form("%s_pedestal_%d%s[%f]",chargeEst.Data(),ich,biasPostFix.Data(),pedestalAvg));
 	      w->var(Form("%s_pedestal_%d%s",chargeEst.Data(),ich,biasPostFix.Data()))->setError(pedestalAvgUnc);
 	      w->factory(Form("%s_noise_%d%s[%f]",chargeEst.Data(),ich,biasPostFix.Data(),pedestalSigma));
@@ -292,7 +299,8 @@ void doPedestalSummary(RooWorkspace *w,TCanvas *c,TString outDir)
 	  txt.SetTextSize(0.03);
 	  txt.DrawLatex(0.15,0.93,CMSLABEL);
 	  txt.DrawLatex(0.8,0.93,Form("Run %d", runNumber)); 
-	  c->SaveAs(outDir+Form("/noiseSummary_%s_ch%d.png",chargeEst.Data(),ich));
+	  for(size_t i=0; i<sizeof(OUTEXTS)/sizeof(TString); i++)
+	    c->SaveAs(outDir+Form("/noiseSummary_%s_ch%d.%s",chargeEst.Data(),ich,OUTEXTS[i].Data()));
 	}
     }
 }
@@ -456,9 +464,11 @@ void determineFiducialBeamSpotFromWireChambers(TChain* H4treeReco,RooWorkspace *
 	  txt.DrawLatex(0.15,0.93,CMSLABEL);
 	  txt.DrawLatex(0.8,0.93,Form("Run %d", runNumber)); 
 	  if(doSiFiducial)
-	    c->SaveAs(outDir+Form("/y_%s_wc%d.png",tag.Data(),iwc));
+	    for(size_t i=0; i<sizeof(OUTEXTS)/sizeof(TString); i++)
+	      c->SaveAs(outDir+Form("/y_%s_wc%d.%s",tag.Data(),iwc,OUTEXTS[i].Data()));
 	  else
-	    c->SaveAs(outDir+Form("/yinc_%s_wc%d.png",tag.Data(),iwc));
+	    for(size_t i=0; i<sizeof(OUTEXTS)/sizeof(TString); i++)
+	      c->SaveAs(outDir+Form("/yinc_%s_wc%d.%s",tag.Data(),iwc,OUTEXTS[i].Data()));
 	  
 	  //x summary
 	  c->Clear();
@@ -479,9 +489,11 @@ void determineFiducialBeamSpotFromWireChambers(TChain* H4treeReco,RooWorkspace *
 	  txt.DrawLatex(0.15,0.93,CMSLABEL);
 	  txt.DrawLatex(0.8,0.93,Form("Run %d", runNumber)); 
 	  if(doSiFiducial)
-	    c->SaveAs(outDir+Form("/x_%s_wc%d.png",tag.Data(),iwc));
+	    for(size_t i=0; i<sizeof(OUTEXTS)/sizeof(TString); i++)
+	      c->SaveAs(outDir+Form("/x_%s_wc%d.%s",tag.Data(),iwc,OUTEXTS[i].Data()));
 	  else
-	    c->SaveAs(outDir+Form("/xinc_%s_wc%d.png",tag.Data(),iwc));
+	    for(size_t i=0; i<sizeof(OUTEXTS)/sizeof(TString); i++)
+	      c->SaveAs(outDir+Form("/xinc_%s_wc%d.%s",tag.Data(),iwc,OUTEXTS[i].Data()));
 	}
     }
 }
@@ -560,47 +572,8 @@ void runMIPFits(Int_t run,TString inDir,Bool_t allowSecondPeak)
 	      h->SetMarkerStyle(20);
 	      h->SetMarkerColor(1);
 
-	      TF1* fitFunc=new TF1("fitFunc",sigFuncCB,minCharge,maxCharge,13);
 	      
-	      fitFunc->SetParName(0,"N_{0}");
-	      fitFunc->SetParName(1,"pedestal");
-	      fitFunc->SetParName(2,"#sigma_{noise}");
-	      fitFunc->SetParName(3,"#alpha_{CB}");
-	      fitFunc->SetParName(4,"n_{CB}");
-	      fitFunc->SetParName(5,"#xi_{1}");
-	      fitFunc->SetParName(6,"MPV_{1}");
-	      fitFunc->SetParName(7,"N_{1}");
-	      fitFunc->SetParName(8,"#sigma_{noise}");
-	      if(allowSecondPeak)
-		{
-		  fitFunc->SetParName(9,"#xi_{2}");
-		  fitFunc->SetParName(10,"MPV_{2}");
-		  fitFunc->SetParName(11,"N_{2}");
-		  fitFunc->SetParName(12,"#sigma_{noise}");
-		}
-
-	      //crystal-ball
-	      fitFunc->SetParLimits(0,0.,h->Integral());
-	      fitFunc->FixParameter(1,0.);
-	      //if(ifit==4) fitFunc->SetParLimits(1,-noiseVar->getVal(),noiseVar->getVal());
-	      fitFunc->FixParameter(2,noiseVar->getVal());
-	      fitFunc->SetParLimits(3,0,10);
-	      fitFunc->FixParameter(4,1);
-	      
-	      //first peak
-	      fitFunc->SetParLimits(5,(iest==0 ? 9 : 1),  (iest==0 ? 35 : 20));
-	      fitFunc->SetParLimits(6,(iest==0 ? 90 : 5), (iest==0 ? 350 : 100));
-	      fitFunc->SetParLimits(7,0,h->Integral()*1000);
-	      fitFunc->FixParameter(8,noiseVar->getVal());
-	      
-	      fitFunc->FixParameter(9,0.1);
-	      fitFunc->FixParameter(10,0.);
-	      if(allowSecondPeak) fitFunc->SetParLimits(10,0,h->Integral()*10);
-	      else                fitFunc->FixParameter(10,0.);
-	      fitFunc->FixParameter(11,noiseVar->getVal());
-
-
-	      /*
+	      //define the fit function
 	      TF1* fitFunc=new TF1("fitFunc",sigFunc,minCharge,maxCharge,11);
 	      
 	      fitFunc->SetParName(0,"N_{0}");
@@ -633,19 +606,17 @@ void runMIPFits(Int_t run,TString inDir,Bool_t allowSecondPeak)
 	      if(allowSecondPeak) fitFunc->SetParLimits(9,0,h->Integral()*10);
 	      else                fitFunc->FixParameter(9,0.);
 	      fitFunc->FixParameter(10,noiseVar->getVal());
-	      */
 	      
-
+	      
 	      TFitResultPtr fitRes=h->Fit(fitFunc,"SERB+");
-	      //Int_t status = (Int_t)fitRes;
+	      Int_t status = (Int_t)fitRes;
 
 	      //show the result of the fit
 	      c->Clear();
 
-	      fitFunc->Draw();
 	      fitFunc->SetLineColor(kBlue);
+	      fitFunc->Draw();
 
-	      /*
 	      Double_t fitparams[11];
 	      fitFunc->GetParameters(fitparams);
 	      TF1 *mip1= new TF1("mip1",lanconvgau,minCharge,maxCharge,4);
@@ -657,14 +628,30 @@ void runMIPFits(Int_t run,TString inDir,Bool_t allowSecondPeak)
 	      
 	      if(allowSecondPeak)
 		{
+		  Float_t relSigma[6]={0.05,0.1,0.15,0.2,0.25,0.3};
+		  Float_t mpv2expAt3[6]={1.0537841320521606,1.1064830178068685,1.165639071227548,1.2134364957354753,1.2635444715793551,1.3174923805350};
+		  Float_t sigma2expAt3[6]={1.705351871064611,1.70993653332279,1.7061919950914877,1.687724097141382,1.7021148462819709,1.66699100227524};
+		  Float_t tryRelSigma(fitparams[4]>0 ? fitparams[3]/fitparams[4] :0.051);
+		  if(tryRelSigma>0.3) tryRelSigma=0.299;
+		  fitparams[8]=mpv2expAt3[0]*3*fitparams[4];
+		  fitparams[7]=sigma2expAt3[0]*TMath::Sqrt(3.0)*fitparams[3];
+		  for(size_t i=0; i<5; i++)
+		    {
+		      if(tryRelSigma<relSigma[i] || tryRelSigma>=relSigma[i+1]) continue;
+		      fitparams[8]=mpv2expAt3[i]*3*fitparams[4];
+		      fitparams[7]=sigma2expAt3[i]*TMath::Sqrt(3.0)*fitparams[3];
+		    }
+		  fitparams[10]=fitparams[2];		  
+
 		  TF1 *mip2= new TF1("mip2",lanconvgau,minCharge,maxCharge,4);
-		  Double_t par[4]={1.66*TMath::Sqrt(3.0)*fitparams[3],1.22*3*fitparams[4],fitparams[9],fitparams[2]};
+		  Double_t par[4]={fitparams[7],fitparams[8],fitparams[9],fitparams[10]};
 		  mip2->SetParameters(&par[0]);
 		  mip2->SetLineColor(kGray+1);
 		  mip2->SetFillColor(kGray+1);
 		  mip2->SetFillStyle(3001);
 		  mip2->Draw("fcsame");
 		}
+	      
 	      
 	      h->Draw("same");
 	      fitFunc->GetYaxis()->SetTitle("Events");
@@ -682,7 +669,7 @@ void runMIPFits(Int_t run,TString inDir,Bool_t allowSecondPeak)
 		  c->SetLogy(false);
 		  fitFunc->GetYaxis()->SetRangeUser(0.1,h->GetMaximum()*1.3);
 		}
-	      */
+
 
 	      TLatex txt;
 	      txt.SetNDC();
@@ -725,7 +712,8 @@ void runMIPFits(Int_t run,TString inDir,Bool_t allowSecondPeak)
 		}
 	      
 	      //if(status!=0) txt.DrawLatex(0.6,0.53,Form("#scale[0.8]{#color[2]{Warning status=%d}}",status));
-	      c->SaveAs(outDir+Form("/mipfit_pad%d_fit%d_%s.png",ich,ifit,siChargeEst[iest].Data()));
+	      for(size_t i=0; i<sizeof(OUTEXTS)/sizeof(TString); i++)
+		c->SaveAs(outDir+Form("/mipfit_pad%d_fit%d_%s.%s",ich,ifit,siChargeEst[iest].Data(),OUTEXTS[i].Data()));
 
 	      //save summary
 	      fitSummary.chi2         = chi2;
@@ -750,17 +738,14 @@ void runMIPFits(Int_t run,TString inDir,Bool_t allowSecondPeak)
 }
 
 //
-void prepareWorkspaceForRun(TString url="root://eoscms//eos/cms/store/cmst3/group/hgcal/TimingTB_H2_Jul2015/RECO/3eb93c8/RECO_3373.root",TString outDir="~/www/HGCal")
+void prepareWorkspaceForRun(Int_t runNumber,std::vector<TString> &url,TString outDir="~/www/HGCal")
 {
 
   setROOTstyle();
 
   //open file
   TChain *H4treeReco=new TChain("H4treeReco");
-  H4treeReco->Add(url);
-  UInt_t runNumber;
-  H4treeReco->SetBranchAddress("runNumber",    &runNumber);
-  H4treeReco->GetEntry(0);
+  for(size_t i=0; i<url.size(); i++) H4treeReco->Add(url[i]);
 
   //prepare workspace
   RooWorkspace *w=new RooWorkspace("w");
@@ -899,18 +884,47 @@ void prepareWorkspaceForRun(TString url="root://eoscms//eos/cms/store/cmst3/grou
 //wrapper for all the MIP runs
 void makeRunSummary(TString outDir="~/www/HGCal/FastTimeTB/MIPCalibrationRuns",
 		    TString inDir="/store/cmst3/group/hgcal/TimingTB_H2_Jul2015/RECO/3eb93c8",
+		    Bool_t joinMIPruns=true,
 		    Bool_t redoWorkspace=true)
 {
-  Int_t runs[]    = {3370,3371,3372,3373,3374,3375,3376,3363,3369,3346};
-  for(size_t i=0; i<sizeof(runs)/sizeof(Int_t); i++)
-    {
-      TString url(Form("root://eoscms//eos/cms/%s/RECO_%d.root",inDir.Data(),runs[i]));
-      if(redoWorkspace) prepareWorkspaceForRun(url,outDir);
-      
-      bool doSecondPeak(runs[i]==3363 || runs[i]==3369 || runs[i]==3346); //these are electron runs 
-      runMIPFits(runs[i],outDir,doSecondPeak);
 
-      gSystem->Exec(Form("cp /afs/cern.ch/user/p/psilva/work/HGCal/TestBeam/Analysis/FastTimeTestBeamAnalysis/scripts/index.php %s/Run%d",outDir.Data(),runs[i]));
+  //prepare run lust
+  std::vector<TString> urlTemplate;
+  std::map<Int_t,std::vector<TString> > runs;
+  Int_t mipRuns[]    = {3370,3371,3372,3373,3374,3375,3376};
+  Int_t eleRuns[]    = {3363,3369,3346};
+  for(size_t i=0; i<sizeof(mipRuns)/sizeof(Int_t); i++)
+    {
+      TString url( Form("root://eoscms//eos/cms/%s/RECO_%d.root",inDir.Data(),mipRuns[i]) );
+      if(joinMIPruns)
+	{
+	  if(runs.find(0)==runs.end()) runs[0]=urlTemplate;
+	  runs[0].push_back(url);
+	}
+      else
+	{
+	  runs[mipRuns[i]]=urlTemplate;
+	  runs[mipRuns[i]].push_back(url);
+	}
+    }
+  for(size_t i=0; i<sizeof(eleRuns)/sizeof(Int_t); i++)
+    {
+      TString url( Form("root://eoscms//eos/cms/%s/RECO_%d.root",inDir.Data(),eleRuns[i]) );
+       runs[eleRuns[i]]=urlTemplate;
+       runs[eleRuns[i]].push_back(url);
+    }
+
+  //lup over run list
+  for(std::map<Int_t,std::vector<TString> >::iterator it=runs.begin(); it!=runs.end(); it++)
+    {
+      bool isElectronRun(it->first==3363 || it->first==3369 || it->first==3346); //these are electron runs 
+      bool doSecondPeak (isElectronRun);
+
+      if(redoWorkspace) prepareWorkspaceForRun(it->first,it->second,outDir);
+      
+      runMIPFits(it->first,outDir,doSecondPeak);
+
+      gSystem->Exec(Form("cp /afs/cern.ch/user/p/psilva/work/HGCal/TestBeam/Analysis/FastTimeTestBeamAnalysis/scripts/index.php %s/Run%d",outDir.Data(),it->first));
     }
 }
 

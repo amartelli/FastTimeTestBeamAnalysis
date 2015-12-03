@@ -6,6 +6,8 @@
 #include "Math/Math.h"
 #include "Math/PdfFuncMathCore.h"
 
+//TF1 *cbFunc=new TF1("cbFunc","ROOT::Math::crystalball_function(x, 1, 1,50,0)",-100.,1000.,3);
+
 Double_t lanconvgau(Double_t *x, Double_t *par) {
 
   //Fit parameters:
@@ -83,7 +85,6 @@ Double_t sigFunc(Double_t *x, Double_t *par)
       par[8]=mpv2expAt3[i]*3*par[4];
       par[7]=sigma2expAt3[i]*TMath::Sqrt(3.0)*par[3];
     }
-  
   par[10]=par[2];
   float mip2=lanconvgau(x,&par[7]);  
   return noise+mip1+mip2;
@@ -91,9 +92,16 @@ Double_t sigFunc(Double_t *x, Double_t *par)
 
 
 
+/*
+
 Double_t sigFuncCB(Double_t *x, Double_t *par) 
 {
-  float noise=par[0]*ROOT::Math::crystalball_pdf(x[0],par[3], par[4], par[2], par[1]);
+  //CB parameters are (alpha, n sigma, mu)
+  cbFunc->SetParameter(1,par[3]);
+  cbFunc->SetParameter(2,par[4]);
+  cbFunc->SetParameter(3,par[2]);
+  cbFunc->SetParameter(4,par[1]);
+  float noise=par[0]*cbFunc->Eval(x[0]);
 
   par[8]=par[2];
   float mip1=lanconvgau(x,&par[5]);
@@ -120,4 +128,5 @@ Double_t sigFuncCB(Double_t *x, Double_t *par)
   return noise+mip1+mip2;
 }
 
+*/
 
