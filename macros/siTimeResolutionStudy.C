@@ -15,7 +15,10 @@
 #include "TLatex.h"
 #include "TNtuple.h"
 #include "TChain.h"
+#include "TRandom.h"
 #include "TFitResult.h"
+#include "TLegend.h"
+#include "TLine.h"
 
 #include "RooWorkspace.h"
 #include "RooRealVar.h"
@@ -124,7 +127,11 @@ void produceCalibratedEnergySpectrumFor(std::vector<Int_t> runs,Float_t siWidth=
       TString url( Form("root://eoscms//eos/cms/%s/RECO_%d.root",inDir.Data(),runs[irun]) );
       H4treeReco->Add(url);
     }
-  
+
+  UInt_t runNumber,spillNumber,evtNumber;
+  H4treeReco->SetBranchAddress("runNumber",    &runNumber);
+  H4treeReco->SetBranchAddress("spillNumber",  &spillNumber);
+  H4treeReco->SetBranchAddress("evtNumber",    &evtNumber);
   Float_t wc_recox[16], wc_recoy[16];
   UInt_t wc_xl_hits[16], wc_xr_hits[16], wc_yu_hits[16], wc_yd_hits[16]; 
   UInt_t nwc;
@@ -142,14 +149,15 @@ void produceCalibratedEnergySpectrumFor(std::vector<Int_t> runs,Float_t siWidth=
   H4treeReco->SetBranchAddress("wave_max",                 wave_max);
   H4treeReco->SetBranchAddress("charge_integ_smallw_mcp",  charge_integ_smallw_mcp);
   H4treeReco->SetBranchAddress("wave_fit_smallw_ampl",     wave_fit_smallw_ampl);
-  Float_t t_max[100],  t_max_frac30[100], t_max_frac50[100],   t_at_threshold[100], t_over_threshold[100];
+  Float_t t_max[100],  t_max_frac30[100], t_max_frac50[100];
   H4treeReco->SetBranchAddress("t_max",                t_max);
   H4treeReco->SetBranchAddress("t_max_frac30",         t_max_frac30);
   H4treeReco->SetBranchAddress("t_max_frac50",         t_max_frac50);
-  H4treeReco->SetBranchAddress("t_at_threshold",       t_at_threshold);
-  H4treeReco->SetBranchAddress("t_over_threshold",     t_over_threshold);
+  Float_t wave_aroundmax[100][50], time_aroundmax[100][50];
+  H4treeReco->SetBranchAddress("wave_aroundmax",       wave_aroundmax);
+  H4treeReco->SetBranchAddress("time_aroundmax",       time_aroundmax);
  
-  //loop over events
+  //prepare output summary tree
   TFile *fOut=TFile::Open("timetest.root","RECREATE");
   fOut->cd();
   TTree *ttree=new TTree("ttree","ttree");
@@ -159,10 +167,19 @@ void produceCalibratedEnergySpectrumFor(std::vector<Int_t> runs,Float_t siWidth=
   ttree->Branch("t_max",             t_max,            "t_max[2]/F");
   ttree->Branch("t_max_frac30",      t_max_frac30,     "t_max_frac30[2]/F");
   ttree->Branch("t_max_frac50",      t_max_frac50,     "t_max_frac50[2]/F");
+  Float_t t_at_threshold[100], t_over_threshold[100];
   ttree->Branch("t_at_threshold",    t_at_threshold,   "t_at_threshold[2]/F");
   ttree->Branch("t_over_threshold",  t_over_threshold, "t_over_threshold[2]/F");
 
-  Int_t nSel(0);
+  //canvas to hold wave forms
+  TCanvas *c=new TCanvas("c","c",500,500);
+  c->SetTopMargin(0.05);
+  c->SetRightMargin(0.05);
+  c->SetLeftMargin(0.12);
+  c->SetBottomMargin(0.1);
+
+  //loop over events
+  Int_t nSel(0),nWaveFormPlots(0);
   for(int i=0; i<H4treeReco->GetEntries(); i++)
     {
       H4treeReco->GetEntry(i);
@@ -192,8 +209,17 @@ void produceCalibratedEnergySpectrumFor(std::vector<Int_t> runs,Float_t siWidth=
       nSel++;
       
       //loop over channels
+      Bool_t doWaveFormPlot(false);
+      std::vector<TGraph *> waveFormGrs;
       for(int ich=2; ich<4; ich++)
 	{
+	  //save pre-computed time estimates
+	  t_max[ich-2]            = t_max[ich];
+	  t_max_frac30[ich-2]     = t_max_frac30[ich];
+	  t_max_frac50[ich-2]     = t_max_frac50[ich];
+	  //t_at_threshold[ich-2]   = t_at_threshold[ich];
+	  // t_over_threshold[ich-2] = t_over_threshold[ich];
+
 	  //get charge
 	  for(Int_t siChargeEstIdx=0; siChargeEstIdx<2; siChargeEstIdx++)
 	    {
@@ -201,14 +227,70 @@ void produceCalibratedEnergySpectrumFor(std::vector<Int_t> runs,Float_t siWidth=
 	      if(siChargeEstIdx==1) rawCharge=wave_fit_smallw_ampl[ich];
 	      calibEn[ich-2][siChargeEstIdx] = (rawCharge-siPedestal[ich][siChargeEstIdx])/adc2mip[siChargeEstIdx];
 	    }
+	  
+	  //save waveform
+	  if(ich==2 && (calibEn[0][0]>5 || calibEn[0][1]>5) && nWaveFormPlots<20 && gRandom->Uniform()>0.5 ) doWaveFormPlot=true;
+	  if(!doWaveFormPlot) continue;
 
-	  t_max[ich-2]            = t_max[ich];
-	  t_max_frac30[ich-2]     = t_max_frac30[ich];
-	  t_max_frac50[ich-2]     = t_max_frac50[ich];
-	  t_at_threshold[ich-2]   = t_at_threshold[ich];
-	  t_over_threshold[ich-2] = t_over_threshold[ich];
+	  float meanEn=0.5*(calibEn[ich-2][0]+calibEn[ich-2][1]);
+	  float meanEnUnc=0.5*fabs(calibEn[ich-2][0]-calibEn[ich-2][1]);
+	  TGraph *timeGr=new TGraph();
+	  timeGr->SetFillStyle(0);
+	  timeGr->SetMarkerStyle(20+ich);
+	  timeGr->SetName( Form("ch%d",ich) );
+	  timeGr->SetTitle( Form("#scale[0.8]{E(%d) = %3.2f #pm %3.2f MIP}",ich,meanEn,meanEnUnc) );
+	  for(Int_t itime=0; itime<50; itime++)
+	    timeGr->SetPoint(timeGr->GetN(),time_aroundmax[ich][itime]*1e9,wave_aroundmax[ich][itime]);
+	  waveFormGrs.push_back(timeGr);	  
 	}
+      
+      //save tree
       ttree->Fill();
+
+      //save graph if required
+      if(!doWaveFormPlot) continue;
+
+      nWaveFormPlots++;
+      c->Clear();
+      TLegend *leg=new TLegend(0.15,0.85,0.4,0.75);
+      leg->SetTextFont(42);
+      leg->SetTextSize(0.035);
+      leg->SetBorderSize(0);
+      leg->SetFillStyle(0);
+      
+      Float_t ymin(9999999999.),ymax(-ymin);
+      for(size_t igr=0; igr<waveFormGrs.size(); igr++)
+	{
+	  waveFormGrs[igr]->Draw(igr==0? "ap" : "p");
+	  waveFormGrs[igr]->GetXaxis()->SetTitle("Time [ns]");
+	  waveFormGrs[igr]->GetYaxis()->SetTitle("ADC counts");
+	  waveFormGrs[igr]->GetYaxis()->SetTitleOffset(1.4);
+	  leg->AddEntry(waveFormGrs[igr],waveFormGrs[igr]->GetTitle(),"p");
+	  ymin=TMath::Min((Float_t)waveFormGrs[igr]->GetYaxis()->GetXmin(),(Float_t)ymin);
+	  ymax=TMath::Max((Float_t)waveFormGrs[igr]->GetYaxis()->GetXmax(),(Float_t)ymax);
+	}
+
+      for(size_t igr=0; igr<waveFormGrs.size(); igr++)
+	{
+	  TLine *l=new TLine;
+	  l->SetLineColor(igr+2);
+	  l->SetLineStyle(2);
+	  l->DrawLine(t_max[igr],ymin,t_max[igr],ymax);
+	  l->DrawLine(t_max_frac30[igr],ymin,t_max_frac30[igr],ymax);
+	  //l->DrawLine(ymin,t_max_frac50[igr],ymax,t_max_frac50[igr]);	  
+	}
+      
+      TLatex *txt=new TLatex;
+      txt->SetTextFont(42);
+      txt->SetTextSize(0.035);
+      txt->SetNDC();
+      txt->DrawLatex(0.15,0.90,"#bf{CMS}");
+      txt->DrawLatex(0.15,0.85,"#scale[0.8]{#it{Fast-timing test beam preliminary}}");
+      txt->DrawLatex(0.6,0.90,Form("#scale[0.8]{Run %d Spill %d Event %d}",runNumber,spillNumber,evtNumber));
+      
+      leg->Draw();
+      
+      c->SaveAs(Form("waveform_%d.png",nWaveFormPlots));
     }
 
   cout << nSel << " events selected out of " << H4treeReco->GetEntries() << " initial events" << endl;
