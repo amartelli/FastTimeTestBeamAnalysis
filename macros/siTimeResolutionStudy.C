@@ -158,18 +158,22 @@ void produceCalibratedEnergySpectrumFor(std::vector<Int_t> runs,Float_t siWidth=
   H4treeReco->SetBranchAddress("time_aroundmax",       time_aroundmax);
  
   //prepare output summary tree
-  TFile *fOut=TFile::Open("timetest.root","RECREATE");
+  TFile *fOut=TFile::Open(Form("timesummary_%d.root",Int_t(siWidth)),"RECREATE");
   fOut->cd();
   TTree *ttree=new TTree("ttree","ttree");
   ttree->SetDirectory(fOut);
-  Float_t calibEn[2][2];
-  ttree->Branch("calibEn",           calibEn,          "calibEn[2][2]/F");
-  ttree->Branch("t_max",             t_max,            "t_max[2]/F");
-  ttree->Branch("t_max_frac30",      t_max_frac30,     "t_max_frac30[2]/F");
-  ttree->Branch("t_max_frac50",      t_max_frac50,     "t_max_frac50[2]/F");
-  Float_t t_at_threshold[100], t_over_threshold[100];
-  ttree->Branch("t_at_threshold",    t_at_threshold,   "t_at_threshold[2]/F");
-  ttree->Branch("t_over_threshold",  t_over_threshold, "t_over_threshold[2]/F");
+  Float_t calibEn[3],rawEn[3],AoverN[3];
+  Float_t out_t_max[3],  out_t_max_frac30[3], out_t_max_frac50[3],out_t_mip10[3],out_t_mip20[3];
+  ttree->Branch("rawEn",             rawEn,            "rawEn[3]/F");
+  ttree->Branch("AoverN",            AoverN,           "AoverN[3]/F");
+  ttree->Branch("calibEn",           calibEn,          "calibEn[3]/F");
+  ttree->Branch("t_max",             out_t_max,            "t_max[3]/F");
+  ttree->Branch("t_max_frac30",      out_t_max_frac30,     "t_max_frac30[3]/F");
+  ttree->Branch("t_max_frac50",      out_t_max_frac50,     "t_max_frac50[3]/F");
+  ttree->Branch("t_mip10",           out_t_mip10,          "t_mip10[3]/F");
+  ttree->Branch("t_mip20",           out_t_mip20,          "t_mip20[3]/F");
+  ttree->Branch("wave_aroundmax",    wave_aroundmax,   "wave_aroundmax[3][50]/F");
+  ttree->Branch("time_aroundmax",    time_aroundmax,   "time_aroundmax[3][50]/F");
 
   //canvas to hold wave forms
   TCanvas *c=new TCanvas("c","c",500,500);
@@ -185,7 +189,9 @@ void produceCalibratedEnergySpectrumFor(std::vector<Int_t> runs,Float_t siWidth=
       H4treeReco->GetEntry(i);
       
       //require hits in the wire chambers
-      Bool_t isEmpty(wc_xl_hits[0]==0 && wc_xr_hits[0]==0 && wc_xl_hits[1]==0 && wc_xr_hits[1]==0 && wc_yu_hits[1]==0 && wc_yd_hits[1]==0);
+      Bool_t isEmpty(wc_xl_hits[0]==0 && wc_xr_hits[0]==0 && 
+		     wc_xl_hits[1]==0 && wc_xr_hits[1]==0 && 
+		     wc_yu_hits[1]==0 && wc_yd_hits[1]==0);
       if(isEmpty) continue;
       
       //require reconstructed beamspot to be meaningful
@@ -211,40 +217,61 @@ void produceCalibratedEnergySpectrumFor(std::vector<Int_t> runs,Float_t siWidth=
       //loop over channels
       Bool_t doWaveFormPlot(false);
       std::vector<TGraph *> waveFormGrs;
-      for(int ich=2; ich<4; ich++)
+      for(int ich=1; ich<4; ich++)
 	{
-	  //save pre-computed time estimates
-	  t_max[ich-2]            = t_max[ich];
-	  t_max_frac30[ich-2]     = t_max_frac30[ich];
-	  t_max_frac50[ich-2]     = t_max_frac50[ich];
-	  //t_at_threshold[ich-2]   = t_at_threshold[ich];
-	  // t_over_threshold[ich-2] = t_over_threshold[ich];
+	  int chIdx(ich==1 ? 2 : ich-2);
 
-	  //get charge
-	  for(Int_t siChargeEstIdx=0; siChargeEstIdx<2; siChargeEstIdx++)
+	  //save pre-computed time estimates
+	  out_t_max[chIdx]            = t_max[ich];
+	  out_t_max_frac30[chIdx]     = t_max_frac30[ich];
+	  out_t_max_frac50[chIdx]     = t_max_frac50[ich];
+
+	  //get charge and calibrate it to the energy
+	  rawEn[chIdx]=TMath::Max(Float_t(0.),Float_t(charge_integ_smallw_mcp[ich]-siPedestal[ich][0]));
+	  if(chIdx<2)
 	    {
-	      Float_t rawCharge(charge_integ_smallw_mcp[ich]);
-	      if(siChargeEstIdx==1) rawCharge=wave_fit_smallw_ampl[ich];
-	      calibEn[ich-2][siChargeEstIdx] = (rawCharge-siPedestal[ich][siChargeEstIdx])/adc2mip[siChargeEstIdx];
+	      AoverN[chIdx]  = rawEn[chIdx]/siNoise[ich][0];
+	      calibEn[chIdx] = rawEn[chIdx]/adc2mip[0];
 	    }
-	  
+
 	  //save waveform
-	  if(ich==2 && (calibEn[0][0]>5 || calibEn[0][1]>5) && nWaveFormPlots<20 && gRandom->Uniform()>0.5 ) doWaveFormPlot=true;
+	  if(ich==1) continue;
+	  if(ich==2 && calibEn[chIdx]>5 && nWaveFormPlots<30 && gRandom->Uniform()>0.5 ) doWaveFormPlot=true;
 	  if(!doWaveFormPlot) continue;
 
-	  float meanEn=0.5*(calibEn[ich-2][0]+calibEn[ich-2][1]);
-	  float meanEnUnc=0.5*fabs(calibEn[ich-2][0]-calibEn[ich-2][1]);
 	  TGraph *timeGr=new TGraph();
 	  timeGr->SetFillStyle(0);
 	  timeGr->SetMarkerStyle(20+ich);
 	  timeGr->SetName( Form("ch%d",ich) );
-	  timeGr->SetTitle( Form("#scale[0.8]{E(%d) = %3.2f #pm %3.2f MIP}",ich,meanEn,meanEnUnc) );
+	  timeGr->SetTitle( Form("#scale[0.8]{E(%d) = %3.2f MIP}",ich,calibEn[chIdx]) );
 	  for(Int_t itime=0; itime<50; itime++)
 	    timeGr->SetPoint(timeGr->GetN(),time_aroundmax[ich][itime]*1e9,wave_aroundmax[ich][itime]);
 	  waveFormGrs.push_back(timeGr);	  
 	}
       
       //save tree
+      for(int ich=2; ich<4; ich++)
+	{
+	  Int_t chIdx=ich-2;
+	  out_t_mip10[chIdx]=999999.;
+	  out_t_mip20[chIdx]=999999.;
+	  for(Int_t itime=0; itime<50; itime++)
+	    {
+	      Float_t dt=t_max[ich]-time_aroundmax[ich][itime]*1e9;
+	      Float_t ampl=(wave_aroundmax[ich][itime]-siPedestal[ich][1])/adc2mip[1];
+	      if(dt<0)
+		{
+		  if(ampl>10)  out_t_mip10[chIdx] = TMath::Min(time_aroundmax[ich][itime],out_t_mip10[chIdx]);
+		  if(ampl>20)  out_t_mip20[chIdx] = TMath::Min(time_aroundmax[ich][itime],out_t_mip20[chIdx]);
+		}
+
+	      //update with calibrated values
+	      time_aroundmax[chIdx][itime]=dt;	      
+	      wave_aroundmax[chIdx][itime]=ampl;
+	    }
+	  out_t_mip10[chIdx] = out_t_mip10[chIdx]>1e3 ? -1 : out_t_mip10[chIdx]*1e9;
+	  out_t_mip20[chIdx] = out_t_mip20[chIdx]>1e3 ? -1 : out_t_mip20[chIdx]*1e9;
+	}
       ttree->Fill();
 
       //save graph if required
@@ -261,22 +288,27 @@ void produceCalibratedEnergySpectrumFor(std::vector<Int_t> runs,Float_t siWidth=
       Float_t ymin(9999999999.),ymax(-ymin);
       for(size_t igr=0; igr<waveFormGrs.size(); igr++)
 	{
+	  waveFormGrs[igr]->SetLineColor(igr+1);
+	  waveFormGrs[igr]->SetMarkerColor(igr+1);
+	  waveFormGrs[igr]->SetFillStyle(0);
 	  waveFormGrs[igr]->Draw(igr==0? "ap" : "p");
 	  waveFormGrs[igr]->GetXaxis()->SetTitle("Time [ns]");
 	  waveFormGrs[igr]->GetYaxis()->SetTitle("ADC counts");
 	  waveFormGrs[igr]->GetYaxis()->SetTitleOffset(1.4);
 	  leg->AddEntry(waveFormGrs[igr],waveFormGrs[igr]->GetTitle(),"p");
-	  ymin=TMath::Min((Float_t)waveFormGrs[igr]->GetYaxis()->GetXmin(),(Float_t)ymin);
-	  ymax=TMath::Max((Float_t)waveFormGrs[igr]->GetYaxis()->GetXmax(),(Float_t)ymax);
+	  if(igr==0){
+	    ymin=TMath::Min((Float_t)waveFormGrs[igr]->GetYaxis()->GetXmin(),(Float_t)ymin);
+	    ymax=TMath::Max((Float_t)waveFormGrs[igr]->GetYaxis()->GetXmax(),(Float_t)ymax);
+	  }
 	}
 
       for(size_t igr=0; igr<waveFormGrs.size(); igr++)
 	{
 	  TLine *l=new TLine;
-	  l->SetLineColor(igr+2);
+	  l->SetLineColor(igr+1);
 	  l->SetLineStyle(2);
-	  l->DrawLine(t_max[igr],ymin,t_max[igr],ymax);
-	  l->DrawLine(t_max_frac30[igr],ymin,t_max_frac30[igr],ymax);
+	  l->DrawLine(out_t_max[igr],ymin,out_t_max[igr],ymax);
+	  l->DrawLine(out_t_max_frac30[igr],ymin,out_t_max_frac30[igr],ymax);
 	  //l->DrawLine(ymin,t_max_frac50[igr],ymax,t_max_frac50[igr]);	  
 	}
       
@@ -290,7 +322,7 @@ void produceCalibratedEnergySpectrumFor(std::vector<Int_t> runs,Float_t siWidth=
       
       leg->Draw();
       
-      c->SaveAs(Form("waveform_%d.png",nWaveFormPlots));
+      c->SaveAs(Form("waveform_%d_si%d.png",nWaveFormPlots,(int)siWidth));
     }
 
   cout << nSel << " events selected out of " << H4treeReco->GetEntries() << " initial events" << endl;
@@ -304,13 +336,53 @@ void produceCalibratedEnergySpectrumFor(std::vector<Int_t> runs,Float_t siWidth=
 void getCalibratedEnergySpectrum(Float_t siWidth=285,TString inDir="/store/cmst3/group/hgcal/TimingTB_H2_Jul2015/RECO/6000b73")
 {
   std::vector<Int_t> runs;
-  //320microns 3 radiation length
-  runs.push_back(3330);
-  runs.push_back(3333);
-  runs.push_back(3349);
-  runs.push_back(3350);
-  runs.push_back(3352);
-  runs.push_back(3358);
+  if(siWidth==285)
+    {
+
+      referenceWorkspaceUrl="~/www/HGCal/FastTimeTB/test/Run3346/workspace.root";
+
+      //3X0
+      runs.push_back(3330);
+      runs.push_back(3333);
+      runs.push_back(3349);
+      runs.push_back(3350);
+      runs.push_back(3352);
+      runs.push_back(3358);
+
+      //2X0
+      runs.push_back(3334);
+      runs.push_back(3335);
+      runs.push_back(3336);
+      runs.push_back(3337);
+      runs.push_back(3338);
+      runs.push_back(3339);
+      runs.push_back(3340);
+      runs.push_back(3341);
+      runs.push_back(3342);
+      runs.push_back(3348);
+
+      //4X0
+      runs.push_back(3353);
+      runs.push_back(3355);
+      runs.push_back(3356);
+    }
+  if(siWidth==133)
+    {
+      referenceWorkspaceUrl="~/www/HGCal/FastTimeTB/test/Run3363/workspace.root";
+
+      //4X0
+      runs.push_back(3358);
+      runs.push_back(3362);
+    }
+  if(siWidth==211.5)
+    {
+      //4X0
+      referenceWorkspaceUrl="~/www/HGCal/FastTimeTB/test/Run0/workspace.root";
+      runs.push_back(3365);
+      runs.push_back(3367);
+    }
+
+
 
   produceCalibratedEnergySpectrumFor(runs,siWidth,inDir);
 };
