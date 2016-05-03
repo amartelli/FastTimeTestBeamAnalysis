@@ -39,12 +39,12 @@ public :
    UInt_t          tdcChannel[22];   //[nTdcChannels]
    UInt_t          tdcData[22];   //[nTdcChannels]
    UInt_t          nDigiSamples;
-   UInt_t          digiFrequency[27648];   //[nDigiSamples]
-   UInt_t          digiGroup[27648];   //[nDigiSamples]
-   UInt_t          digiChannel[27648];   //[nDigiSamples]
-   UInt_t          digiSampleIndex[27648];   //[nDigiSamples]
-   Float_t         digiSampleValue[27648];   //[nDigiSamples]
-   UInt_t          digiBoard[27648];   //[nDigiSamples]
+   UInt_t          digiFrequency[36865];   //[nDigiSamples]
+   UInt_t          digiGroup[36865];   //[nDigiSamples]
+   UInt_t          digiChannel[36865];   //[nDigiSamples]
+   UInt_t          digiSampleIndex[36865];   //[nDigiSamples]
+   Float_t         digiSampleValue[36865];   //[nDigiSamples]
+   UInt_t          digiBoard[36865];   //[nDigiSamples]
    UInt_t          nScalerWords;
    UInt_t          scalerWord[8];   //[nScalerWords]
    UInt_t          scalerBoard[8];   //[nScalerWords]

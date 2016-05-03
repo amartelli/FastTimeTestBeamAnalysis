@@ -78,7 +78,11 @@ H4treeReco::H4treeReco(TChain *tree,JSONWrapper::Object *cfg,TString outUrl) :
 //
 void H4treeReco::InitDigi()
 {
+#ifdef DEBUG_VERBOSE
+  std::cout << " InitDigi " << std::endl;
+#endif
   //general config
+  
   std::vector<JSONWrapper::Object> general=(*cfg_)["general"].daughters();
   for(size_t i=0; i<general.size(); i++)
     {
@@ -89,6 +93,7 @@ void H4treeReco::InitDigi()
 	  exit(-1);
 	}
     }
+  
 
   //init channels of interest
   std::vector<JSONWrapper::Object> digis=(*cfg_)["digis"].daughters();
@@ -105,6 +110,7 @@ void H4treeReco::InitDigi()
 	  trigger_=key;
       recChannelsH_->GetXaxis()->SetBinLabel(i+1,chRec->GetName());
       recChannelsH_->SetBinContent(i+1,i);
+      
       TProfile* wave=(TProfile*)fWaveTemplates_->Get(Form("%s_waveProfile",chRec->GetName().Data()));
       if (wave)
 	{
@@ -113,6 +119,7 @@ void H4treeReco::InitDigi()
 	}
       else
 	waveTemplates_[i]=0;
+      
     }
 
   //init wire chambers readout
@@ -131,6 +138,9 @@ void H4treeReco::InitDigi()
 //
 void H4treeReco::FillWaveforms()
 {
+#ifdef DEBUG_VERBOSE
+  std::cout << " FillWaveforms " << std::endl;
+#endif
   //first reset waveforms
   int ictr(0);
   for (std::map<GroupChannelKey_t,ChannelReco*>::iterator it=chPlots_.begin();it!=chPlots_.end();++it,ictr++)
@@ -174,6 +184,9 @@ void H4treeReco::FillWaveforms()
 
 void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
 {
+#ifdef DEBUG_VERBOSE
+  std::cout << " >>> reconstructWaveform " << std::endl;
+#endif
   std::map<GroupChannelKey_t,ChannelReco*>::iterator it=chPlots_.find(key);
   // Extract waveform information:
   ChannelReco *chRec=it->second;
@@ -183,7 +196,11 @@ void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
   //use samples to get pedestal and RMS
   Waveform::baseline_informations wave_pedestal= waveform->baseline(chRec->GetPedestalWindowLo(),
 								    chRec->GetPedestalWindowUp(),(chRec->GetBaselineSlope()!=0)); 
-  
+#ifdef DEBUG_VERBOSE
+  //  std::cout << " chRec->GetName() = " << chRec->GetName() << std::endl;
+  std::cout << " >>> Position  = " << maxch_ << " name = " << chRec->GetName() << std::endl;
+#endif
+
   //substract the pedestal from the samples (slope corrected if slope !=0 slope in ADC/ns)
   waveform->offset(wave_pedestal.pedestal,chRec->GetBaselineSlope());
   
@@ -209,21 +226,39 @@ void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
 									searchWindowUp,
 									chRec->GetSamplesToInterpolateAtMax()
 									); 
-  
+#ifdef DEBUG_VERBOSE
+  std::cout << " wave_pedestal.pedestal = " <<  wave_pedestal.pedestal << std::endl;  
+  std::cout << " wave_max.max_amplitude = " << wave_max.max_amplitude << std::endl;  
+  std::cout << " wave_max.sample_at_max = " << wave_max.sample_at_max << std::endl;  
+  std::cout << " t_max_[maxch_] = " << wave_max.time_at_max*1.e9 << std::endl;
+  std::cout << " >>> waveform->_times[1] = " << waveform->_times[1] << std::endl;
+  std::cout << " wave_max_aft window  => max+ " << (int)(chRec->GetSearchWindowAfterLo()/waveform->_times[1]) 
+	    << " " << (int)(chRec->GetSearchWindowAfterUp()/waveform->_times[1]) << std::endl;
+#endif
+
+
+
+
+
   //find max amplitude in the search window after the max (to check for ringing issues)
   Waveform::max_amplitude_informations wave_max_aft=waveform->max_amplitude(std::min((int)wave_max.sample_at_max+(int)(chRec->GetSearchWindowAfterLo()/waveform->_times[1]),(int)waveform->_samples.size()),
 									    std::min((int)wave_max.sample_at_max+(int)(chRec->GetSearchWindowAfterUp()/waveform->_times[1]),(int)waveform->_samples.size()),		  
 									    chRec->GetSamplesToInterpolateAtMax()); 
   
+
+#ifdef DEBUG_VERBOSE
+  std::cout << " Now fill reco Tree " << std::endl;
+#endif  
   //fill information for the reco tree
   group_[maxch_]              = it->first.first;
   ch_[maxch_]                 = it->first.second;
   pedestal_[maxch_]           = wave_pedestal.pedestal;
   pedestalRMS_[maxch_]        = wave_pedestal.rms;
   pedestalSlope_[maxch_]        = wave_pedestal.slope;
-  wave_max_[maxch_]           = wave_max.max_amplitude;
+  wave_max_[maxch_]           = wave_max.max_amplitude;   
   wave_max_aft_[maxch_]           = wave_max_aft.max_amplitude; //for studying ringing issues after the samples
   t_max_[maxch_]              = wave_max.time_at_max*1.e9;
+
   for(int i=chRec->GetSpyWindowLo(); i<=chRec->GetSpyWindowUp(); i++)
     {
       int idx2store = i-chRec->GetSpyWindowLo();
@@ -245,15 +280,32 @@ void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
 	}
       
     }
-  
+
   //charge integrated
   charge_integ_[maxch_]       = waveform->charge_integrated(wave_max.sample_at_max-chRec->GetChargeWindowLo()/waveform->_times[1],
 							    wave_max.sample_at_max+chRec->GetChargeWindowUp()/waveform->_times[1]);
 
-  
+  /*
+  if(chRec->GetName() == "SiPad1"){
+    TProfile *ciao=new TProfile("ciao","",1024, 0., 1024);
+    for(int i=0; i<1024; ++i)
+      ciao->Fill(digiSampleIndex[i], digiSampleValue[i]);
+    TFile pippo("pippo.root", "recreate");
+    pippo.cd();
+    ciao->Write();
+    pippo.Close();   
+  }
+  */
+
   //charge integrated up to the max
   charge_integ_max_[maxch_]   = waveform->charge_integrated(wave_max.sample_at_max-chRec->GetChargeWindowLo()/waveform->_times[1],
 							    wave_max.sample_at_max);
+
+#ifdef DEBUG_VERBOSE
+  std::cout << " charge_integ_[maxch_] = " << charge_integ_[maxch_] << std::endl;  
+  std::cout << " charge_integ_[maxch_] = " << charge_integ_[maxch_] << std::endl;  
+#endif
+
   
   //interpolates the wave form in a time range to find the time at 30% of the max
   //7 is the number of samples to use in the interpolation
@@ -269,7 +321,7 @@ void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
 							     0.5,
 							     wave_max,
 							     chRec->GetSamplesToInterpolateForCFD());
-  
+
   //time estimate at fixed value (only if max is above threshold)
   t_at_threshold_[maxch_] = -999;
   if(wave_max.max_amplitude>chRec->GetThrForTiming())
@@ -282,11 +334,21 @@ void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
 	  t_over_threshold_[maxch_] = 1.0e9*(crossingTimes.size()>1 ? crossingTimes[1]-crossingTimes[0] : -999);
 	}
 
-  charge_integ_fix_[maxch_]       = waveform->charge_integrated((int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-chRec->GetChargeWindowLo()*1E9)/(waveform->_times[1]*1E9)),(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()+chRec->GetChargeWindowUp()*1E9)/(waveform->_times[1]*1E9)));
 
 #ifdef DEBUG_VERBOSE
-  std::cout << t_at_threshold_[0] << "," << (int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9))-((chRec->GetSmallChargeWindowsSize()-1)/2) << "," << (int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9))+((chRec->GetSmallChargeWindowsSize()-1)/2) << std::endl;
+  std::cout << " t_max_frac50_[maxch_] = " << t_max_frac50_[maxch_] << std::endl;  
+  std::cout << " >>> t_at_threshold_[0] = " << t_at_threshold_[0] << std::endl;
+  //  std::cout << " >>> t_max_[1] = " << t_max_[1] << std::endl;
+#endif  
+
+
+#ifdef DEBUG_VERBOSE
+  std::cout << " >>> charge_integ_fix => low = " << (int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-chRec->GetChargeWindowLo()*1E9)/(waveform->_times[1]*1E9)) 
+	    << " up = " << (int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()+chRec->GetChargeWindowUp()*1E9)/(waveform->_times[1]*1E9)) << std::endl;
+  std::cout << " charge_integ_smallw " << t_at_threshold_[0] << "," << (int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9))-((chRec->GetSmallChargeWindowsSize()-1)/2) << "," << (int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9))+((chRec->GetSmallChargeWindowsSize()-1)/2) << std::endl;
 #endif
+
+  charge_integ_fix_[maxch_]       = waveform->charge_integrated((int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-chRec->GetChargeWindowLo()*1E9)/(waveform->_times[1]*1E9)),(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()+chRec->GetChargeWindowUp()*1E9)/(waveform->_times[1]*1E9)));
 
   charge_integ_smallw_[maxch_]       = waveform->charge_integrated((int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9))-((chRec->GetSmallChargeWindowsSize()-1)/2),(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9))+((chRec->GetSmallChargeWindowsSize()-1)/2));
   charge_integ_largew_[maxch_]       = waveform->charge_integrated((int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9))-((chRec->GetLargeChargeWindowsSize()-1)/2),(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta())/(waveform->_times[1]*1E9))+((chRec->GetLargeChargeWindowsSize()-1)/2));
@@ -302,9 +364,18 @@ void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
       charge_integ_largew_mcp_[maxch_]=-9999;
     }
 
-  charge_integ_smallw_noise_[maxch_]       = waveform->charge_integrated((int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-35)/(waveform->_times[1]*1E9))-((chRec->GetSmallChargeWindowsSize()-1)/2),(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-35)/(waveform->_times[1]*1E9))+((chRec->GetSmallChargeWindowsSize()-1)/2));
-  charge_integ_largew_noise_[maxch_]       = waveform->charge_integrated((int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-35)/(waveform->_times[1]*1E9))-((chRec->GetLargeChargeWindowsSize()-1)/2),(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-35)/(waveform->_times[1]*1E9))+((chRec->GetLargeChargeWindowsSize()-1)/2));
+#ifdef DEBUG_VERBOSE
+  std::cout << " >>> charge in noise region " << std::endl;
+  std::cout << " charge_integ_smallw_noise => low " << (int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-20)/(waveform->_times[1]*1E9))-((chRec->GetSmallChargeWindowsSize()-1)/2) << " up = " << (int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-20)/(waveform->_times[1]*1E9))+((chRec->GetSmallChargeWindowsSize()-1)/2) << std::endl;
+  std::cout << " charge_integ_largew_noise => low " << (int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-20)/(waveform->_times[1]*1E9))-((chRec->GetLargeChargeWindowsSize()-1)/2) << " up = " << (int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-20)/(waveform->_times[1]*1E9))+((chRec->GetLargeChargeWindowsSize()-1)/2) << std::endl;
+#endif
 
+  charge_integ_smallw_noise_[maxch_]       = waveform->charge_integrated((int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-20)/(waveform->_times[1]*1E9))-((chRec->GetSmallChargeWindowsSize()-1)/2),(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-20)/(waveform->_times[1]*1E9))+((chRec->GetSmallChargeWindowsSize()-1)/2));
+  charge_integ_largew_noise_[maxch_]       = waveform->charge_integrated((int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-20)/(waveform->_times[1]*1E9))-((chRec->GetLargeChargeWindowsSize()-1)/2),(int)((t_at_threshold_[0]+chRec->GetAbsoluteTimeDelta()-20)/(waveform->_times[1]*1E9))+((chRec->GetLargeChargeWindowsSize()-1)/2));
+
+#ifdef DEBUG_VERBOSE
+  std::cout << " >>> charge in random region " << std::endl;
+#endif
   charge_integ_smallw_rnd_[maxch_]=0;
   charge_integ_largew_rnd_[maxch_]=0;
   for (int i=0;i<chRec->GetSmallChargeWindowsSize();++i)
@@ -318,6 +389,9 @@ void H4treeReco::reconstructWaveform(GroupChannelKey_t key)
       charge_integ_largew_rnd_[maxch_] += waveform->charge_integrated(irnd,irnd);
     }
 
+#ifdef DEBUG_VERBOSE
+  std::cout << " before FIT (only fit if MCP)" << std::endl;
+#endif  
 
   //now fit 
   if (chRec->GetMCPTimeDelta()!=0 && (*it).first != trigger_)
@@ -376,7 +450,10 @@ void H4treeReco::Loop()
   Long64_t nentries = fChain->GetEntries();
   for (Long64_t jentry=0; jentry<nentries;jentry++) 
     {
-      
+      //      if(jentry != 111) continue;
+      //if(jentry != 21) continue;
+      //std::cout << " >>>>>>>>>>>>> entry = " << jentry << std::endl;
+
       //progress bar
       if(jentry%10==0) 
 	{
@@ -403,6 +480,9 @@ void H4treeReco::Loop()
 //
 void H4treeReco::FillTDC()
 {
+#ifdef DEBUG_VERBOSE
+  std::cout << " >>> FillTDC() = " << std::endl;
+#endif
   //reset data
   for (uint j=0; j<MaxTdcChannels_; j++){ tdc_readings_[j].clear();}
   
@@ -443,6 +523,9 @@ void H4treeReco::FillTDC()
 
 H4treeReco::~H4treeReco()
 {
+#ifdef DEBUG_VERBOSE
+  std::cout << " Bye " << std::endl;
+#endif
   fOut_->cd();
   recoT_->Write();
   recChannelsH_->SetDirectory(fOut_);
