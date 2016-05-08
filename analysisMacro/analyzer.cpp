@@ -86,8 +86,15 @@ int main(int argc, char** argv)
 
   //Histos => needs to expand
   TH2F* WC_occupancy[2];
+  TH2F* WC_occupancy_Trigger[2];
+  TH2F* WC_diff = new TH2F("WC_diff", "", 20, -5.5, 1.5, 20, -3., 1.);
+
+  //adjust bins and range
+  TH2F* WC_diff_Pad1 = new TH2F("WC_diff_Pad1", "", 200, -20., 20., 200, -20., 20.);
   for(int iw=0; iw<2; ++iw){
-    WC_occupancy[iw] = new TH2F(Form("WC%d_occupancy",iw), "", 400, -20., 20., 400, -20., 20.);
+  //adjust bins and range
+    WC_occupancy[iw] = new TH2F(Form("WC%d_occupancy",iw), "", 200, -20., 20., 200, -20., 20.);
+    WC_occupancy_Trigger[iw] = new TH2F(Form("WC%d_occupancy_Trigger",iw), "", 200, -20., 20., 200, -20., 20.);
   }
 
 
@@ -97,10 +104,18 @@ int main(int argc, char** argv)
     //readout the event                                                                                                                                                        
     tree->GetEntry(jentry);
 
+    WC_diff->Fill(wc_recox[0]-wc_recox[1], wc_recoy[0]-wc_recoy[1]);
 
-    for(unsigned int iw=0; iw<nwc; ++iw){
-   
+    //selection to be in the high acceptance region of both wire chambers
+    if(abs(wc_recox[0]-wc_recox[1]+3.5) <1 && abs(wc_recoy[0]-wc_recoy[1]+0.8) < 1){
+      WC_diff_Pad1->Fill(wc_recox[0], wc_recoy[0], wave_max[4]);
+      //options could be
+      //if(wave_max[4] > chosen_threshold) Wc_diff_Pad1->Fill(wc_recox[0], wc_recoy[0]);
+
+    }
+    for(unsigned int iw=0; iw<nwc; ++iw){  
       WC_occupancy[iw]->Fill(wc_recox[iw], wc_recoy[iw]);
+      if(t_at_threshold[0] > 150. && t_at_threshold[0] < 170.) WC_occupancy_Trigger[iw]->Fill(wc_recox[iw], wc_recoy[iw]);
     }
   }
 
@@ -118,6 +133,41 @@ int main(int argc, char** argv)
 
     cWC[iw]->Print((outFolder+"/"+std::string(WC_occupancy[iw]->GetName())+".png").c_str(), ".png");
   }
+
+  TCanvas* cWCT[2];
+  for(int iw=0; iw<2; ++iw){
+    cWCT[iw] = new TCanvas();
+    cWCT[iw]->cd();
+    WC_occupancy_Trigger[iw]->GetXaxis()->SetTitle(Form("wc %d x (mm)", iw));
+    WC_occupancy_Trigger[iw]->GetYaxis()->SetTitle(Form("wc %d y (mm)", iw));
+    WC_occupancy_Trigger[iw]->Draw("colz");
+
+    cWCT[iw]->Print((outFolder+"/"+std::string(WC_occupancy_Trigger[iw]->GetName())+".png").c_str(), ".png");
+  }
+
+  TCanvas* cWCdiff = new TCanvas();
+  cWCdiff->cd();
+  WC_diff->GetXaxis()->SetTitle("wc diff x (mm)");
+  WC_diff->GetYaxis()->SetTitle("wc diff y (mm)");
+  WC_diff->Draw("colz");
+  cWCdiff->Print((outFolder+"/"+std::string(WC_diff->GetName())+".png").c_str(), ".png");
+
+  TCanvas* cWCdiff_Pad1 = new TCanvas();
+  cWCdiff_Pad1->cd();
+  WC_diff_Pad1->GetXaxis()->SetTitle("wc x (mm) for Pad1 wave_max");
+  WC_diff_Pad1->GetYaxis()->SetTitle("wc y (mm) for Pad1 wave_max");
+  WC_diff_Pad1->Draw("colz");
+  cWCdiff_Pad1->Print((outFolder+"/"+std::string(WC_diff_Pad1->GetName())+".png").c_str(), ".png");
+
+  TFile outF("outFile.root", "recreate");
+  outF.cd();
+  for(int iw=0; iw<2; ++iw){
+    WC_occupancy_Trigger[iw]->Write();
+    WC_occupancy[iw]->Write();
+  }
+  WC_diff->Write();
+  WC_diff_Pad1->Write();
+  outF.Close();
 
   return 0;     
 
