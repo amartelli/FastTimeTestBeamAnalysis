@@ -267,11 +267,11 @@ int main(){
   TGraph* PS = new TGraph();
   PS->SetPoint(0, -1, -1);
   PS->SetPoint(1, 0, atMax_Pad1.at(0) - at30_Pad1.at(0));
-  PS->SetPoint(2, 6.25e+15, atMax_Pad3.at(0) - at30_Pad3.at(0));
-  PS->SetPoint(3, 6.25e+15, atMax_Pad4.at(0) - at30_Pad4.at(0));
-  PS->SetPoint(4, 10e+15, atMax_Pad5.at(0) - at30_Pad5.at(0));
-  PS->SetPoint(5, 16e+15, atMax_Pad6.at(0) - at30_Pad6.at(0));
-  PS->SetPoint(6, 30e+15, 2);
+  PS->SetPoint(2, 6.25, atMax_Pad3.at(0) - at30_Pad3.at(0));
+  PS->SetPoint(3, 6.25, atMax_Pad4.at(0) - at30_Pad4.at(0));
+  PS->SetPoint(4, 10, atMax_Pad5.at(0) - at30_Pad5.at(0));
+  PS->SetPoint(5, 16, atMax_Pad6.at(0) - at30_Pad6.at(0));
+  PS->SetPoint(6, 30, 2);
   PS->SetMarkerStyle(20);
 
   TGraph* P1[3];
@@ -423,8 +423,9 @@ int main(){
   legS->SetHeader("Si N-on-P 120#mum");
   
   TCanvas* graphS = new TCanvas();
-  //  PS->GetXaxis()->SetTitle("fluence (n/cm^{2} x E+15)");
-  PS->GetXaxis()->SetTitle("fluence (n/cm^{2})");
+  //  gPad->SetLogx();
+  PS->GetXaxis()->SetTitle("fluence (n/cm^{2} x e+15)");
+  //  PS->GetXaxis()->SetTitle("fluence (n/cm^{2})");
   PS->GetXaxis()->SetRangeUser(-1, 20.);
   PS->GetYaxis()->SetTitle("t_{90%} - t_{10%} (ns)");
   PS->GetYaxis()->SetRangeUser(0.9, 1.1);
