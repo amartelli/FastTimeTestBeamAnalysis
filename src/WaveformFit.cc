@@ -174,5 +174,56 @@ namespace WaveformFit
   }
 
   
+  void fitTemplate(TH1F* waveToFit, TH1F* waveTemplate, TF1** f_template, float binWidth, float offset, int tStart_oThr, int tStop_oThr, int xMin, int xMax, const Waveform::max_amplitude_informations& max, int& status)
+  {
+    //    std::cout << ">>>>>> fitTemplate" << std::endl;
+    
+    //TVirtualFitter::SetDefaultFitter("Fumili2");
+    TVirtualFitter::SetDefaultFitter("Minuit2");
+    //float xNorm = h_DA->Integral() / h_MC->Integral() * h_DA->GetBinWidth(1) / h_MC->GetBinWidth(1);                                                    
+    
+    //tStart_oThr, tStop_oThr if fitting a saturated pulse => reject samples over threshold
+    histoFuncT* templateHistoFunc = new histoFuncT(waveTemplate, tStart_oThr, tStop_oThr);
+
+    char funcName[50];
+    sprintf(funcName,"f_template");
+    
+    //    (*f_template) = new TF1(funcName,templateHistoFunc, 0, 1024, 4,"histoFuncT");
+    (*f_template) = new TF1(funcName,templateHistoFunc, xMin, xMax, 3,"histoFuncT");
+    
+    (*f_template)->SetParName(0,"yScale");
+    (*f_template)->SetParName(1,"xScale");
+    (*f_template)->SetParName(2,"xShift");
+    //    (*f_template)->SetParName(3,"yShift");
+    (*f_template)->SetLineWidth(1);
+    (*f_template)->SetNpx(10000);
+    (*f_template)->SetLineColor(kRed+2);
+           
+    //    (*f_template)->SetParameters(1. * max.max_amplitude, 1., (-offset + (max.time_at_max*1e9/0.2)) * binWidth);
+    (*f_template)->SetParameters(1. * max.max_amplitude, 1., (-offset + (max.time_at_max*1e9/0.2)) * binWidth);
+
+    //    return;
+    gErrorIgnoreLevel = kError;
+    
+    TFitResultPtr rp = waveToFit->Fit(funcName,"QERLS+");
+    //TFitResultPtr rp = h_DA->Fit(funcName,"RQ");                                                                                                        
+    int fStatus = rp;
+    int nTrials = 0;
+    while( (fStatus != 0) && (nTrials < 5) )
+      {
+	rp = waveToFit->Fit(funcName,"QNERLS+");
+	//rp = h_DA->Fit(funcName,"RQ");                                                                                                                  
+	fStatus = rp;
+	if( fStatus == 0 ) break;
+	++nTrials;
+      }
+    
+    status = fStatus;
+    //    std::cout << " fStatus = " << fStatus << std::endl;                                                                                             
+  }
+
+
 };
+
+
 

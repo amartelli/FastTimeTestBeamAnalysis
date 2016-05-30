@@ -5,13 +5,19 @@
 #include "TMath.h"
 
 #define WARNING_ERROR 0
-
+#define DEB 0
 using namespace std;
 
 float Waveform::charge_integrated(const int& x1, const int& x2, float pedestal) const
 {
 
   float return_value = 0;
+
+
+  if(DEB){
+    std::cout << " Waveform::charge_integrated " << std::endl;
+    std::cout << " x1 = " << x1 << " x2 = " << x2 << std::endl;
+  }
 
   if (x1<0 || x2> int(_samples.size()-1))
     {
@@ -32,27 +38,30 @@ Waveform::max_amplitude_informations Waveform::max_amplitude(const int& x1, cons
 {
   max_amplitude_informations return_value;  
 
+  if(DEB){
+    std::cout << " Waveform::max_amplitude " << std::endl;
+    std::cout << " x1 = " << x1 << " x2 = " << x2 << std::endl;
+  }
+
+
   if (x1<0 || x2>int(_samples.size()-1))
     {
       if (WARNING_ERROR)
 	std::cout << "WARNING::Waveform::max_amplitude::gate is outside samples range" << std::endl;
       return return_value;
     }
-
   int imax=-1;
   float max=-999.;
 
   for (int i(x1);i<=x2;++i)
     {
-      //      std::cout << "++++ " <<  i << "," << _times[i] << "," << _samples[i] << "," << max << "," << imax << std::endl;
+      //            std::cout << "++++ " <<  i << "," << _times[i] << "," << _samples[i] << "," << max << "," << imax << std::endl;
       if (_samples[i]>=max)
 	{
 	  max=_samples[i];
 	  imax=i;
 	}
     }
-
-
   if (imax>-1)
     {
       float x[nSamplesAroundMax];
@@ -75,7 +84,6 @@ Waveform::max_amplitude_informations Waveform::max_amplitude(const int& x1, cons
 		std::cout << "WARNING::Waveform::max_amplitude::maximum found too close to gate edges. Increase gate width" << std::endl;
 	    }
 	}
-
       if (nSamples>3)
 	{
 	  //Now fit with parabolic function around maximum value
@@ -84,10 +92,17 @@ Waveform::max_amplitude_informations Waveform::max_amplitude(const int& x1, cons
 
 	  //FIXME Add a check on the FIT status
 	  double *par=graph->GetFunction("pol2")->GetParameters();
-	  return_value.max_amplitude=par[0]-(par[1]*par[1]/(4*par[2]));
-	  return_value.time_at_max=-(par[1]/(2*par[2]))/1.e9;
-	  return_value.sample_at_max=imax;
 
+	  if(par[2] <= 0.){
+	    return_value.max_amplitude=par[0]-(par[1]*par[1]/(4*par[2]));
+	    return_value.time_at_max=-(par[1]/(2*par[2]))/1.e9;
+	    return_value.sample_at_max=imax;
+	  }
+	  else{
+	    return_value.max_amplitude=max;
+	    return_value.time_at_max=_times[imax];
+	    return_value.sample_at_max=imax;
+	  }
 	  delete graph;
 	}
       else
@@ -98,8 +113,8 @@ Waveform::max_amplitude_informations Waveform::max_amplitude(const int& x1, cons
 	  return_value.time_at_max=_times[imax];
 	  return_value.sample_at_max=imax;
 	}
-
     }
+
   return return_value;
 };
 
